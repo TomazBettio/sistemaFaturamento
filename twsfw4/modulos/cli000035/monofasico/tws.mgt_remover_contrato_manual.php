@@ -41,7 +41,7 @@ class mgt_remover_contrato_manual
 		$param = [];
 		$param['width'] = 'AUTO';
 
-		$param['info'] = false;
+		$param['info'] = true;
 		$param['filter'] = false;
 		$param['ordenacao'] = false;
 		$param['paginacao'] = false;
@@ -89,7 +89,7 @@ class mgt_remover_contrato_manual
 		$this->_tabela->addColuna(array('campo' => 'numero_ctr', 'etiqueta' => 'Numero Contrato', 'tipo' => 'T', 'width' =>  80, 'posicao' => 'E'));
 		$this->_tabela->addColuna(array('campo' => 'cnpj', 'etiqueta' => 'CNPJ', 'tipo' => 'T', 'width' =>  80, 'posicao' => 'E'));
 		$this->_tabela->addColuna(array('campo' => 'razao_social', 'etiqueta' => 'Nome da Empresa', 'tipo' => 'T', 'width' => 100, 'posicao' => 'E'));
-		$this->_tabela->addColuna(array('campo' => 'dt_inc', 'etiqueta' => 'Data de inclusão', 'tipo' => 'T', 'width' =>  80, 'posicao' => 'E'));
+		$this->_tabela->addColuna(array('campo' => 'dt_inc', 'etiqueta' => 'Data da última alteração', 'tipo' => 'T', 'width' =>  80, 'posicao' => 'E'));
 		$this->_tabela->addColuna(array('campo' => 'status', 'etiqueta' => 'Status', 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
 		$this->_tabela->addColuna(array('campo' => 'StatusContribuicao', 'etiqueta' => 'Status Contribuição', 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
 		$this->_tabela->addColuna(array('campo' => 'StatusContabil', 'etiqueta' => 'Status Contabil', 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));

@@ -20,6 +20,7 @@ class log_robo_semanal
 {
 	var $funcoes_publicas = array(
 		'index' 		=> true,
+		'schedule' 		=> true,
 	);
 
 	//Classe relatorio
@@ -102,7 +103,7 @@ class log_robo_semanal
 		if(is_array($dados) && count($dados) > 0){
 			$update = "UPDATE mgt_monofasico_log SET status = 'V' WHERE status = 'S' and data_conclusao IS NOT NULL";
 			queryMF($update);
-			$update = "UPDATE mgt_monofasico_log SET status = 'J' WHERE status = 'M' and data_conclusao IS NOT NULL";
+			$update = "UPDATE mgt_monofasico_log SET status = 'V' WHERE status = 'M' and data_conclusao IS NOT NULL";
 			queryMF($update); 
 			$this->_relatorio->setMensagemInicioEmail("Esta tabela apresenta uma lista com os Sucessos de ".$semana." até ".$hoje . " na rotina do Robô Monofásico: ");
 		}else $this->_relatorio->setMensagemInicioEmail("Esta tabela apresenta uma lista com os Sucessos de ".$semana." até ".$hoje . " na rotina do Robô Monofásico: Nenhum erro foi encontrado!");

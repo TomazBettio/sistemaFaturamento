@@ -321,10 +321,6 @@ END;
 
 	protected function _insertID($table = '', $column = '')
 	{
-
-		if (!$this->seqField)
-			return false;
-
 		if ($this->schema)
 		{
 			$t = strpos($table,'.');
@@ -791,6 +787,11 @@ END;
 					$nrows += $offset;
 				}
 				$sql = "select * from (".$sql.") where rownum <= :adodb_offset";
+
+				// If non-bound statement, $inputarr is false
+				if (!$inputarr) {
+					$inputarr = array();
+				}
 				$inputarr['adodb_offset'] = $nrows;
 				$nrows = -1;
 			}
@@ -970,13 +971,6 @@ END;
 		return $rez;
 	}
 
-	/**
-	 * Execute SQL
-	 *
-	 * @param sql		SQL statement to execute, or possibly an array holding prepared statement ($sql[0] will hold sql text)
-	 * @param [inputarr]	holds the input data to bind to. Null elements will be set to null.
-	 * @return 		RecordSet or false
-	 */
 	function Execute($sql,$inputarr=false)
 	{
 		if ($this->fnExecute) {
@@ -1094,6 +1088,22 @@ END;
 		return array($sql,$stmt,0,$BINDNUM);
 	}
 
+	function releaseStatement(&$stmt)
+	{
+		if (is_array($stmt)
+			&& isset($stmt[1])
+			&& is_resource($stmt[1])
+			&& oci_free_statement($stmt[1])
+		) {
+			// Clearing the resource to avoid it being of type Unknown
+			$stmt[1] = null;
+			return true;
+		}
+
+		// Not a valid prepared statement
+		return false;
+	}
+
 	/*
 		Call an oracle stored procedure and returns a cursor variable as a recordset.
 		Concept by Robert Tuttle robert@ud.com
@@ -1127,10 +1137,11 @@ END;
 		} else
 			$hasref = false;
 
+		/** @var ADORecordset_oci8 $rs */
 		$rs = $this->Execute($stmt);
 		if ($rs) {
 			if ($rs->databaseType == 'array') {
-				oci_free_cursor($stmt[4]);
+				oci_free_statement($stmt[4]);
 			}
 			elseif ($hasref) {
 				$rs->_refcursor = $stmt[4];
@@ -1241,12 +1252,12 @@ END;
 	 *    $db->Parameter($stmt,$group,'group');
 	 *    $db->Execute($stmt);
 	 *
-	 * @param $stmt Statement returned by Prepare() or PrepareSP().
+	 * @param $stmt Statement returned by {@see Prepare()} or {@see PrepareSP()}.
 	 * @param $var PHP variable to bind to
 	 * @param $name Name of stored procedure variable name to bind to.
-	 * @param [$isOutput] Indicates direction of parameter 0/false=IN  1=OUT  2= IN/OUT. This is ignored in oci8.
-	 * @param [$maxLen] Holds an maximum length of the variable.
-	 * @param [$type] The data type of $var. Legal values depend on driver.
+	 * @param bool $isOutput Indicates direction of parameter 0/false=IN  1=OUT  2= IN/OUT. This is ignored in oci8.
+	 * @param int $maxLen Holds an maximum length of the variable.
+	 * @param mixed $type The data type of $var. Legal values depend on driver.
 	 *
 	 * @link http://php.net/oci_bind_by_name
 	*/
@@ -1261,7 +1272,8 @@ END;
 	}
 
 	/**
-	 * returns query ID if successful, otherwise false
+	 * Execute a query.
+	 *
 	 * this version supports:
 	 *
 	 * 1. $db->execute('select * from table');
@@ -1274,6 +1286,11 @@ END;
 	 * 4. $db->prepare('insert into table (a,b,c) values (:0,:1,:2)');
 	 *    $db->bind($stmt,1); $db->bind($stmt,2); $db->bind($stmt,3);
 	 *    $db->execute($stmt);
+	 *
+	 * @param string|array $sql        Query to execute.
+	 * @param array        $inputarr   An optional array of parameters.
+	 *
+	 * @return mixed|bool Query identifier or true if execution successful, false if failed.
 	 */
 	function _query($sql,$inputarr=false)
 	{
@@ -1484,16 +1501,17 @@ SELECT /*+ RULE */ distinct b.column_name
 	}
 
 	/**
-	 * returns assoc array where keys are tables, and values are foreign keys
+	 * Returns a list of Foreign Keys associated with a specific table.
 	 *
-	 * @param	str		$table
-	 * @param	str		$owner	[optional][default=NULL]
-	 * @param	bool	$upper	[optional][discarded]
-	 * @return	mixed[]			Array of foreign key information
+	 * @param string $table
+	 * @param string $owner
+	 * @param bool   $upper       discarded
+	 * @param bool   $associative discarded
 	 *
-	 * @link http://gis.mit.edu/classes/11.521/sqlnotes/referential_integrity.html
+	 * @return string[]|false An array where keys are tables, and values are foreign keys;
+	 *                        false if no foreign keys could be found.
 	 */
-	function MetaForeignKeys($table, $owner=false, $upper=false)
+	public function metaForeignKeys($table, $owner = '', $upper = false, $associative = false)
 	{
 		global $ADODB_FETCH_MODE;
 
@@ -1578,6 +1596,9 @@ class ADORecordset_oci8 extends ADORecordSet {
 	var $databaseType = 'oci8';
 	var $bind=false;
 	var $_fieldobjs;
+
+	/** @var resource Cursor reference */
+	var $_refcursor;
 
 	function __construct($queryID,$mode=false)
 	{
@@ -1810,7 +1831,12 @@ class ADORecordset_oci8 extends ADORecordSet {
 			$len = $fieldobj->max_length;
 		}
 
-		switch (strtoupper($t)) {
+		$t = strtoupper($t);
+
+		if (array_key_exists($t,$this->connection->customActualTypes))
+			return  $this->connection->customActualTypes[$t];
+
+		switch ($t) {
 		case 'VARCHAR':
 		case 'VARCHAR2':
 		case 'CHAR':

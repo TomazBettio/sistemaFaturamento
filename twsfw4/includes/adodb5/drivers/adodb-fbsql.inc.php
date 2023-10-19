@@ -134,7 +134,6 @@ class ADODB_fbsql extends ADOConnection {
 	}
 
 
-	// returns queryID or false
 	function _query($sql,$inputarr=false)
 	{
 		return fbsql_query("$sql;",$this->_connectionID);
@@ -232,8 +231,15 @@ class ADORecordSet_fbsql extends ADORecordSet{
 			$t = $fieldobj->type;
 			$len = $fieldobj->max_length;
 		}
+
+		$t = strtoupper($t);
+
+		if (array_key_exists($t,$this->connection->customActualTypes))
+			return $this->connection->customActualTypes[$t];
+
 		$len = -1; // fbsql max_length is not accurate
-		switch (strtoupper($t)) {
+
+		switch ($t) {
 		case 'CHARACTER':
 		case 'CHARACTER VARYING':
 		case 'BLOB':

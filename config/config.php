@@ -113,7 +113,7 @@ include_once($config["include"].'tws.cli'.$config['cliente'].'.php');
 $config['db_banco'] 	= 'pdo';
 $config['db_server'] 	= 'host=localhost';
 $config['db_database'] 	= 'intranet4';
-$config['db_usuario'] 	= 'root';.
+$config['db_usuario'] 	= 'root';
 $config['db_senha'] 	= '';
 
 $db = ADOnewConnection($config['db_banco']);

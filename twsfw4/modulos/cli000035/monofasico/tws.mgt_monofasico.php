@@ -21,7 +21,7 @@ class mgt_monofasico extends cad01
     return parent::salvar($id, $formCrud, $acao);
   }
 
-  protected function getEntrada($id, $decodificar_id = true)
+  function getEntrada($id, $decodificar_id = true)
   {
     $ret = parent::getEntrada($id, $decodificar_id);
     $ret['datactr'] = datas::dataS2D($ret['datactr']);

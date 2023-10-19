@@ -20,6 +20,7 @@ class log_robo
 {
 	var $funcoes_publicas = array(
 		'index' 		=> true,
+		'schedule' 		=> true,
 	);
 
 	//Classe relatorio
@@ -49,7 +50,6 @@ class log_robo
 
 		conectaMF();
 		conectaERP();
-		$this->_dados = $this->getDados();
 
 		$param = [];
 		$param['programa'] = $this->_programa;
@@ -85,6 +85,7 @@ class log_robo
 	}
 
 	public function schedule($param = ''){
+		log::gravaLog('log_robo_diario', 'Inicando processo');
 		ini_set('display_errors',0);
 		ini_set('display_startup_erros',0);
 		error_reporting(E_ALL);
@@ -97,40 +98,37 @@ class log_robo
 
 
 		if(is_array($dados) && count($dados) > 0){
-			$update = "UPDATE mgt_monofasico_log SET status = 'S' WHERE status = 'D'";
-			queryMF($update);
+			// $update = "UPDATE mgt_monofasico_log SET status = 'S' WHERE status = 'D'";
+			// queryMF($update);
 			$this->_relatorio->setMensagemInicioEmail("Esta tabela apresenta uma lista com os erros do dia ".$hoje." (podendo haver datas do dia anterior em função do horario da atualização) na rotina do Robô Monofásico: ");
 		}else {
-			$update = "UPDATE mgt_monofasico_log SET status = 'S' WHERE status = 'D'";
-			queryMF($update);
+			// $update = "UPDATE mgt_monofasico_log SET status = 'S' WHERE status = 'D'";
+			// queryMF($update);
 			$this->_relatorio->setMensagemInicioEmail("Esta tabela apresenta uma lista com os erros do dia ".$hoje." na rotina do Robô Monofásico: Nenhum erro foi encontrado!");
 		}
-
-		
 			
-			// log::gravaLog('log_robo_diario', 'Inicando processo');
-			if ($this->_teste){
+		if ($this->_teste){
 			$param = 'tomaz.bettio@verticais.com.br';
-			}
+		}
 		$this->_relatorio->enviaEmail($param);
 	
+		log::gravaLog('log_robo_diario', 'Processo finalizado, enviado email para: '.$param);
+		
 		echo "Email enviado";
-
-				
 	}
 
 	private function montaColunas()
 	{
-		$this->_relatorio->addColuna(array('campo' => 'numero_ctr', 'etiqueta' => 'Numero Contrato', 'tipo' => 'T', 'width' =>  80, 'posicao' => 'E'));
-		$this->_relatorio->addColuna(array('campo' => 'cnpj', 'etiqueta' => 'CNPJ', 'tipo' => 'T', 'width' =>  80, 'posicao' => 'E'));
-		$this->_relatorio->addColuna(array('campo' => 'razao_social', 'etiqueta' => 'Nome da Empresa', 'tipo' => 'T', 'width' => 100, 'posicao' => 'E'));
-		$this->_relatorio->addColuna(array('campo' => 'dt_inc', 'etiqueta' => 'Data de inclusão', 'tipo' => 'T', 'width' =>  80, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'numero_ctr'	, 'etiqueta' => 'Numero Contrato'	, 'tipo' => 'T', 'width' =>  80, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'cnpj'		, 'etiqueta' => 'CNPJ'				, 'tipo' => 'T', 'width' =>  80, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'razao_social', 'etiqueta' => 'Nome da Empresa'	, 'tipo' => 'T', 'width' => 100, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'dt_inc'		, 'etiqueta' => 'Data da última alteração'	, 'tipo' => 'T', 'width' =>  80, 'posicao' => 'E'));
 		// $this->_relatorio->addColuna(array('campo' => 'etapa_erro', 'etiqueta' => 'Etapa Erro', 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
-		$this->_relatorio->addColuna(array('campo' => 'status', 'etiqueta' => 'Status', 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
-		$this->_relatorio->addColuna(array('campo' => 'responsavel', 'etiqueta' => 'Responsavel', 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
-		$this->_relatorio->addColuna(array('campo' => 'status', 'etiqueta' => 'Status', 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
-		$this->_relatorio->addColuna(array('campo' => 'andamento', 'etiqueta' => 'Andamento', 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
-		$this->_relatorio->addColuna(array('campo' => 'documentacao', 'etiqueta' => 'Documentação', 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'status'		, 'etiqueta' => 'Status'			, 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'responsavel'	, 'etiqueta' => 'Responsavel'		, 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'status'		, 'etiqueta' => 'Status'			, 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'andamento'	, 'etiqueta' => 'Andamento'			, 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'documentacao', 'etiqueta' => 'Documentação'		, 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
 		// $this->_relatorio->addColuna(array('campo' => '', 'etiqueta' => '', 'tipo' => 'T', 'width' => 250, 'posicao' => 'E'));
 	}
 
@@ -140,7 +138,28 @@ class log_robo
 	{
 		$ret = [];
 
-		$sqlSucesso = "SELECT id, cnpj, DATE_FORMAT(data_inc,'%d/%m/%Y %H:%i:%s') as dt_inc, status, razao_social, numero_ctr, StatusContribuicao, StatusContabil, StatusFiscal, StatusECF, TipoContribuicao, TipoContabil, TipoFiscal, TipoECF FROM mgt_monofasico_log_erros  where status = 'D' order by data_inc DESC";
+		$sqlSucesso = "SELECT 
+							id, 
+							cnpj, 
+							DATE_FORMAT(data_inc,'%d/%m/%Y %H:%i:%s') as dt_inc, 
+							status, 
+							razao_social, 
+							numero_ctr, 
+							StatusContribuicao, 
+							StatusContabil, 
+							StatusFiscal, 
+							StatusECF, 
+							TipoContribuicao, 
+							TipoContabil, 
+							TipoFiscal, 
+							TipoECF 
+						FROM 
+							mgt_monofasico_log_erros  
+						where 
+							status = 'D' 
+						order by 
+							data_inc DESC
+		";
 	
 		$rows = queryMF($sqlSucesso);
 
@@ -179,37 +198,48 @@ class log_robo
 					queryMF($update);
 				}
 
-				$sqlVerificaComercial = "SELECT USUNOME from CONTRATOS LEFT JOIN USUARIOS ON USUCODIGO = CTRVENDEDOR WHERE CTRNROCONTRATO = '" . $numeroctr .  "'";
+				$sqlVerificaComercial = "SELECT USUNOME from CONTRATOS LEFT JOIN USUARIOS ON USUCODIGO = CTRVENDEDOR WHERE CTRNROCONTRATO LIKE '%" . $numeroctr .  "%'";
 				
 				$rows = queryERP($sqlVerificaComercial);
+				// print_r($rows);
+				$primeiroCaracter = substr($numeroctr, 0, 1);
+				if(count($rows) == 0 && $primeiroCaracter == '0'){
+					$numeroctr = substr($numeroctr, 1);
+					$sqlVerificaComercial = "SELECT USUNOME, USUEMAIL from CONTRATOS LEFT JOIN USUARIOS ON USUCODIGO = CTRVENDEDOR WHERE CTRNROCONTRATO LIKE '%" . $numeroctr .  "%'";
+					$rows = queryERP($sqlVerificaComercial);
+				}
+
 				foreach ($rows as $row){
+					if ($row == ''){
+						$temp['responsavel'] = 'Erro de digitação no campo contrato';
+					}
 					$temp['responsavel'] = $row['USUNOME'];
 				}
 
 				$andamento = '';
 				$temp['andamento'] = $andamento;
-				if($temp['StatusContribuicao'] == 'PENDENTE' && $temp['StatusContribuicao'] != 'CONCLUIDO'){
+				if($temp['StatusContribuicao'] == 'PENDENTE'){
 					$andamento .= '- Pendencia Contribuição; ';
 
-				}else{
-					$andamento .= '- Erro inesperado Contribuição; ';
-				}if($temp['StatusContabil'] == 'PENDENTE' && $temp['StatusContabil'] != 'CONCLUIDO'){
+				}else if($temp['StatusContribuicao'] == 'CONCLUIDO'){
+					$andamento .= '- Concluido; ';
+				}if($temp['StatusContabil'] == 'PENDENTE'){
 					$andamento .= '- Pendencia Contabil; ';
 
-				}else{
-					$andamento .= '- Erro inesperado Contabil; ';
+				}else if($temp['StatusContabil'] == 'CONCLUIDO'){
+					$andamento .= '- Concluido; ';
 
-				}if ($temp['StatusFiscal'] == 'PENDENTE' && $temp['StatusFiscal'] != 'CONCLUIDO'){
+				}if ($temp['StatusFiscal'] == 'PENDENTE' ){
 					$andamento .= '- Pendencia Fiscal; ';
 
-				}else{
-					$andamento .= '- Erro inesperado Fiscal; ';
+				}else if($temp['StatusFiscal'] == 'CONCLUIDO'){
+					$andamento .= '- Concluido; ';
 
 
-				}if ($temp['StatusECF'] == 'PENDENTE' && $temp['StatusECF'] != 'CONCLUIDO'){
+				}if ($temp['StatusECF'] == 'PENDENTE' ){
 					$andamento .= '- Pendencia ECF; ';
-				}else{
-					$andamento .= '- Erro inesperado ECF; ';
+				}else if($temp['StatusECF'] == 'CONCLUIDO'){
+					$andamento .= '- Concluido; ';
 
 				}
 				$temp['andamento'] .= $andamento;
@@ -217,13 +247,13 @@ class log_robo
 				$documentacao = '';
 				$temp['documentacao'] = $documentacao;
 				if ($temp['TipoContribuicao'] != 'Sem erro' && $temp['TipoContribuicao'] != 'Nenhum erro'){
-					echo $temp['TipoContribuicao'];
+					// echo $temp['TipoContribuicao'];
 					$documentacao .= $temp['TipoContribuicao'];
 				}else if ($temp['TipoContabil'] != 'Sem erro' && $temp['TipoContabil'] != 'Nenhum erro'){
-					echo $temp['TipoContabil'];
+					// echo $temp['TipoContabil'];
 					$documentacao .= $temp['TipoContabil'];
 				}else if($temp['TipoECF'] != 'Sem erro' && $temp['TipoECF'] != 'Nenhum erro'){
-					echo $temp['TipoECF'];
+					// echo $temp['TipoECF'];
 					$documentacao .= $temp['TipoECF'];
 				}
 				$temp['documentacao'] .= $documentacao;
