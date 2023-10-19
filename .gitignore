@@ -1,0 +1,14 @@
+
+.buildpath
+.project
+.settings/org.eclipse.php.core.prefs
+.settings/org.eclipse.wst.common.project.facet.core.xml
+.settings/org.eclipse.core.resources.prefs
+twsfw4/includes/form02.php
+twsfw4/includes/tabela01.php
+config/SDM/config.php
+logs/
+*.xlsx
+temp/
+retorno.csv
+config/config.php
