@@ -13,7 +13,7 @@
 	</head>
 <body class="hold-transition login-page" style="background: url('<?php echo $config['raizS3'];?>imagens/trilhas.jpeg'); background-size: cover;">
 <div class="login-box">
-  <div class="login-logo">
+  <div class="login-logo">aaaa
     <span style="color: #CCCCCC; font-weight: bold; font-size: x-large;">intranet Tomaz</span>
   </div>
   <!-- /.login-logo -->
