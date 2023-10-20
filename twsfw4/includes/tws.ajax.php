@@ -128,7 +128,4 @@ class ajax{
 	
 	public function addStyle($tipo, $link, $local = 'I', $indice = ''){}
 	
-	public function addMensagem($mensagem, $cor){}
-	
-	
 }

@@ -45,7 +45,6 @@ class arquivos{
 			return $ret;
 		}
 		$programaLink = $this->_modulo.'.'.$this->_classe;
-		
 		//echo "{$this->_modulo},{$this->_classe},{$this->_metodo},{$this->_operacao} <br>\n";
 		if($this->verificaPermissaoUsuario($programaLink)){
 			$obj =&CreateObject($this->_modulo.'.'.$this->_classe );
@@ -62,7 +61,11 @@ class arquivos{
 			$ret = "Tentativa de acesso a funcao sem permissão - ARQUIVOS<br>";
 		}
 		
-		return json_encode($ret);
+		if(is_array($ret)){
+			$ret = json_encode($ret);
+		}
+		
+		return $ret;
 	}
 	
 	//------------------------------------------------------------------ Uteis
@@ -129,8 +132,5 @@ class arquivos{
 	public function addScript($tipo, $link, $local = 'I', $indice = ''){}
 	
 	public function addStyle($tipo, $link, $local = 'I', $indice = ''){}
-	
-	public function addMensagem($mensagem, $cor){}
-	
 	
 }

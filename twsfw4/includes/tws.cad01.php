@@ -68,17 +68,29 @@ class cad01
 	protected $_iconeTitulo;
 	//mostrar mensagens
 	protected $_mostrarMensagens;
-	//botoes extras do index
+	//botoes extras da tabela do index
 	protected $_botoesExtras;
-
+	//botoes extras do card do index
+	protected $_botoesExtrasCard;
+    //id da entrada criada no ultimo include
+	public $_ultimoIdIncluido;
+	//dicionario do browser
+	protected $_dicionario_bw = array();
+	//filtro do browser
+	protected $_filtro;
+	//parametros do filtro
+	protected $_filtro_param;
+	
 
 	function __construct($tabela = '', $param = array())
 	{
 
 		$this->_tabela = $tabela;
+		
+		$this->_ultimoIdIncluido = 0;
 
 		$this->carregar002();
-		$this->_camposSys003 = array('campo', 'ordem', 'descricao', 'etiqueta', 'tipo', 'tamanho', 'casas', 'largura', 'linha', 'linhasTA', 'negativo', 'onchange', 'mascara', 'funcao_browser', 'funcao_lista', 'opcoes', 'tabela_itens', 'validacao', 'nivel', 'gatilho', 'browser', 'usado', 'obrigatorio', 'editavel', 'real', 'pasta', 'alinhamento', 'tambrowser', 'inicializador', 'help', 'funcao_layout', 'funcao_salvar');
+		$this->_camposSys003 = array('campo', 'ordem', 'descricao', 'etiqueta', 'tipo', 'tamanho', 'casas', 'largura', 'linha', 'linhasTA', 'negativo', 'onchange', 'mascara', 'funcao_browser', 'funcao_lista', 'opcoes', 'tabela_itens', 'validacao', 'nivel', 'gatilho', 'browser','campo_chave' ,  'usado', 'obrigatorio', 'editavel', 'real', 'pasta', 'alinhamento', 'tambrowser', 'inicializador', 'help', 'funcao_layout', 'funcao_salvar', 'estilo_form', 'class_form');
 		$this->carregar003();
 		$this->getPastas();
 
@@ -94,7 +106,12 @@ class cad01
 		$this->_titulo = $this->_sys002['etiqueta'];
 
 		$this->_excluir_permanente = $param['excluir_permanente'] ?? false;
+		
 		$this->_mostrar_filtro = getParam($param, 'mostrar_filtro', false);
+		$this->_filtro_param = getParam($param, 'filtro_param', array());
+		$this->_filtro_param['tamanho'] =  $this->_filtro_param['tamanho'] ?? 12;
+		$this->_filtro_param['colunas'] =  $this->_filtro_param['colunas'] ?? 2;
+		$this->_filtro_param['carregaRespostas'] =  $this->_filtro_param['carregaRespostas'] ?? (true && $this->_mostrar_filtro);
 
 		$this->_query_dados = getParam($param, 'query_dados', '');
 		$this->_where = getParam($param, 'where', '');
@@ -107,7 +124,20 @@ class cad01
 		$this->_mostrarMensagens = getParam($param, 'mostraMensagens', true);
 		
 		$this->_botoesExtras = getParam($param, 'botoesExtras', array());
+		$this->_botoesExtrasCard = getParam($param, 'botoesCard', array());
 		$this->ajustarBotoesExtras();
+	}
+	
+	protected function criarFiltro(){
+	    if($this->_mostrar_filtro){
+            $this->_filtro = new formfiltro01($this->_programa, $this->_filtro_param);
+            if($this->_filtro->getQuantPerguntas() <= 0){
+                $this->_filtro = ''; 
+            }
+	    }
+	    else{
+            $this->_filtro = '';
+	    }
 	}
 
 	public function ajax()
@@ -169,14 +199,14 @@ class cad01
 	    }
 	    $this->_botoesExtras = $ret;
 	}
-
+	
 	public function index()
 	{
+	    $this->criarFiltro();
 		$param = array('titulo' => $this->_titulo);
-		$tabela = new tabela01($param);
-		foreach ($this->_camposBrowser as $campo) {
-			$tabela->addColuna($campo);
-		}
+		$tabela = $this->criarTabela();
+		$tabela = $this->adicionarColunasTabela($tabela);
+		$bt_incluir = array();
 		if ($this->_btIncluir) {
 			$param = [];
 			//$param['texto'] 	= traducoes::traduzirTextoDireto('Incluir');
@@ -187,7 +217,8 @@ class cad01
 			$param['flag'] 		= '';
 			$param['onclick'] 		= "setLocation('" . getLink() . "incluir')";
 			$param['cor'] 		= 'success';
-			$tabela->addBotaoTitulo($param);
+			$bt_incluir = $param;
+			//$tabela->addBotaoTitulo($param);
 		}
 		$tabela = $this->adicionarBotoesExtras($tabela, 'inicio');
 		if ($this->_btEditar) {
@@ -212,9 +243,63 @@ class cad01
 			$tabela->addAcao($param);
 		}
 		$tabela = $this->adicionarBotoesExtras($tabela, 'fim');
-		$dados = $this->getDados();
-		$tabela->setDados($dados);
-		return $tabela . '';
+		
+		if($this->_filtro !== '' && $this->_filtro->getQuantPerguntas() > 0){
+		    $botao = [];
+		    $botao["onclick"]= "$('#formFiltro').toggle();";
+		    $botao["texto"]	= "Par&acirc;metros";
+		    $botao["id"] = "bt_form";
+		    $dados = array();
+		    if(!$this->_filtro->getPrimeira()){
+		        $dados = $this->getDados();
+		    }
+		    $tabela->setDados($dados);
+		    $ret = $this->_filtro . $tabela;
+		    $param_card = array('titulo' => $this->_titulo, 'conteudo' => $ret, 'botoesTitulo' => [$botao]);
+		    if(count($this->_botoesExtrasCard) > 0){
+		        foreach($this->_botoesExtrasCard as $bot){
+		            $param_card['botoesTitulo'][] = $bot;
+		        }
+		    }
+		    if(count($bt_incluir) > 0){
+		        $param_card['botoesTitulo'][] = $bt_incluir;
+		    }
+		    
+		    $ret = addCard($param_card);
+		}
+		else{
+		    if(count($this->_botoesExtrasCard) > 0){
+		        foreach($this->_botoesExtrasCard as $bot){
+		            $tabela->addBotaoTitulo($bot);
+		        }
+		    }
+		    if(count($bt_incluir) > 0){
+		        $tabela->addBotaoTitulo($bt_incluir);
+		    }
+		    
+		    $dados = $this->getDados();
+		    $tabela->setDados($dados);
+		    $ret = $tabela . '';
+		}
+		return $ret;
+	}
+	
+	protected function adicionarColunasTabela($tabela){
+	    foreach ($this->_camposBrowser as $campo) {
+	        $tabela->addColuna($campo);
+	    }
+	    return $tabela;
+	}
+	
+	protected function criarTabela(){
+	    if($this->_filtro !== '' && $this->_filtro->getQuantPerguntas() > 0){
+	        $param = array();
+	    }
+	    else{
+	        $param = array('titulo' => $this->_titulo);
+	    }
+	    $tabela = new tabela01($param);
+	    return $tabela;
 	}
 
 	protected function getDados()
@@ -228,20 +313,44 @@ class cad01
 				$temp = array();
 				foreach ($this->_camposBrowser as $campo) {
 					if ($campo['tabela_itens'] != '') {
-						$temp[$campo['campo']] = getTabelaDesc($campo['tabela_itens'], $row[$campo['campo']]);
+					    $tab = explode('|', $campo['tabela_itens']);
+					    if(count($tab) > 2){
+					        if(!isset($this->_dicionario_bw[$campo['campo']])){
+					            //formato: tabela|campo_id|campo_etiqueta|ordem_by|where
+					            $this->_dicionario_bw[$campo['campo']] = array();
+					            $tabela = $tab[0];
+					            $id = $tab[1];
+					            $desc = $tab[2];
+					            $where = isset($tab[4]) && !empty($tab[4]) ? ' WHERE '.$tab[4] : '';
+					            $sql = "SELECT $id,$desc FROM $tabela $where";
+					            $rows_dic = query($sql);
+					            if(is_array($rows_dic) && count($rows_dic) > 0){
+					                foreach ($rows_dic as $row_dic){
+					                    $this->_dicionario_bw[$campo['campo']][$row_dic[0]] = $row_dic[1];
+					                }
+					            }
+					        }
+					        $temp[$campo['campo']] = $this->_dicionario_bw[$campo['campo']][$row[$campo['campo']]] ?? '';
+					    }
+					    else{
+					        $temp[$campo['campo']] = getTabelaDesc($campo['tabela_itens'], $row[$campo['campo']]);
+					    }
 					} elseif ($campo['funcao_browser'] != '') {
 						$comando = $campo['funcao_browser'];
 						$campos_funcao = $this->separaFuncaoBrowser($comando);
 						foreach ($campos_funcao as $cf) {
-							$comando = str_replace('@@' . $cf, isset($row[$cf]) ? $row[$cf] : '', $comando);
+							//$comando = str_replace('@@' . $cf, isset($row[$cf]) ? $row[$cf] : '', $comando);
+						    $comando = str_replace('@@' . $cf, "'" . ($row[$cf] ?? '') . "'", $comando);
 						}
-						$comando = "'" . str_replace(',', "','", $comando) . "'";
-						$comando = '$conteudo = ExecMethod(' . $comando . ');';
+						//$comando = "'" . str_replace(',', "','", $comando) . "'";
+						//$comando = '$conteudo = ExecMethod(' . $comando . ');';
+						$comando = '$conteudo' . " = $comando;";
 						//echo "$comando \n";
 						$conteudo = '';
 						eval($comando);
 						$temp[$campo['campo']] = $conteudo;
-					} else {
+					} 
+					elseif($campo['real'] === 'R') {
 						$temp[$campo['campo']] = $row[$campo['campo']];
 					}
 				}
@@ -264,6 +373,20 @@ class cad01
 			$where = array();
 			if (!empty($this->_sys002['campoAtivo'])) {
 				$where[] = $this->_sys002['campoAtivo'] . " = 'S'";
+			}
+			if($this->_filtro !== '' && $this->_filtro->getQuantPerguntas() > 0){
+			    $dados_filtro = $this->_filtro->getFiltro();
+			    foreach ($this->_sys003 as $campo => $info) {
+			        if(isset($dados_filtro[$campo]) && !empty($dados_filtro[$campo])){
+			            $where[] = "{$campo} = '{$dados_filtro[$campo]}'";
+			        }
+			        if(isset($dados_filtro[$campo . '_min']) && !empty($dados_filtro[$campo . '_min'])){
+			            $where[] = "{$campo} >= '{$dados_filtro[$campo . '_min']}'";
+			        }
+			        if(isset($dados_filtro[$campo . '_max']) && !empty($dados_filtro[$campo . '_max'])){
+			            $where[] = "{$campo} <= '{$dados_filtro[$campo . '_max']}'";
+			        }
+			    }
 			}
 			if (count($where) > 0) {
 				$ret .= 'where ' . implode(' AND ', $where);
@@ -319,7 +442,6 @@ class cad01
 					}
 				}
 			}
-
 			$rows = query($sql);
 			if (is_array($rows) && count($rows) > 0) {
 				foreach ($this->_sys003 as $sys003) {
@@ -332,7 +454,7 @@ class cad01
 		return $ret;
 	}
 
-	protected function montarFormulario($dados = array(), $acao = 'I', $indice_extra = '')
+	public function montarFormulario($dados = array(), $acao = 'I', $indice_extra = '')
 	{
 		if ($indice_extra != '') {
 			$indice_extra = '[' . $indice_extra . ']';
@@ -342,7 +464,38 @@ class cad01
 				$dados[$dadosCampo['campo']] = '';
 			}
 		}
-		$form = new form01();
+		//$dicionario_classes_mascara foi criado para lidar com o modal do kanboard
+		//caso seja necessário editar as mascaras olhar no arquivo app.min.js
+		$dicionario_classes_mascara = array(
+		    false => array(
+		        'cpf' => 'cpf',
+		        'cnpj' => 'cnpj',
+		        'telefone' => 'telefone',
+		        'cep' => 'cep',
+		        'I' => 'inteiroPositivo',
+		        'N' => 'numeroPositivo',
+		        'V' => 'valorPositivo',
+		        'V4' => 'valor4Positivo',
+		        'P' => 'percentagem',
+		        'hora' => 'hora',
+		        'H' => 'hora',
+		    ),
+		    
+		    true => array(
+		        'cpf' => 'cpf',
+		        'cnpj' => 'cnpj',
+		        'telefone' => 'telefone',
+		        'cep' => 'cep',
+		        'I' => 'inteiroNegativo',
+		        'N' => 'numeroNegativo',
+		        'V' => 'valorNegativo',
+		        'V4' => 'valor4Negativo',
+		        'P' => 'percentagem',
+		        'hora' => 'hora',
+		        'H' => 'hora',
+		    ),
+		);
+		$form = new form01(['geraScriptValidacaoObrigatorios' => true]);
 		$camposChave = explode(',', $this->_sys002['chave']);
 		foreach ($this->_sys003 as $campoDados) {
 			if (!in_array($campoDados['tipo'], array('F', 'L', 'V')) || $campoDados['real'] === 'R') {
@@ -352,6 +505,7 @@ class cad01
 					$form->addHidden("formCRUD" . $indice_extra . '[' . $campo . ']', $dados[$campo]);
 				} elseif ($acao == 'E') {
 					if ($campoDados['editavel'] == 'S' && !in_array($campo, $camposChave)) { //Não pode editar campo chave
+					    /*
 						if ($campoDados['tipo'] == 'D') {
 							$tipo = 'D';
 						} elseif (empty($campoDados['funcao_lista']) && empty($campoDados['tabela_itens'])) {
@@ -359,6 +513,12 @@ class cad01
 						} else {
 							$tipo = 'A';
 						}
+						*/
+					    if (empty($campoDados['funcao_lista']) && empty($campoDados['tabela_itens'])) {
+					        $tipo = $campoDados['tipo'];
+					    } else {
+					        $tipo = 'A';
+					    }
 					} else {
 						$tipo = 'I';
 						$form->addHidden("formCRUD" . $indice_extra . '[' . $campo . ']', $dados[$campo]);
@@ -366,11 +526,13 @@ class cad01
 				} elseif ($acao == 'I') {
 					if (!in_array($campo, $camposChave)) {
 						if ($campoDados['funcao_lista'] == '' && empty($campoDados['tabela_itens'])) {
+						    /*
 							if ($campoDados['tipo'] != 'D') {
 								$tipo = 'T';
 							} else {
 								$tipo = 'D';
-							}
+							}*/
+						    $tipo = $campoDados['tipo']; 
 						} else {
 							$tipo = 'A';
 						}
@@ -390,7 +552,7 @@ class cad01
 				}
 
 				$obrigatorio = $campoDados['obrigatorio'] == 'S' ? true : false;
-				if ($this->_mostraID === true || $campo != 'id') {
+				if (($this->_mostraID === true || $campo != 'id') && (($campoDados['editavel'] == 'S' && $acao == 'I') || ($acao == 'E'))) {
 					$mascara = $campoDados['mascara'];
 					$negativo = false;
 					//Valores negativos
@@ -398,6 +560,16 @@ class cad01
 						$mascara = 'V';
 						$negativo = true;
 					}
+					$classe_add = [];
+					if($mascara != ''){
+					    $classe_add[] = $dicionario_classes_mascara[$negativo][$mascara];
+					}
+					if($campoDados['class_form'] != ''){
+					    $classe_temp = str_replace(' ', ',', $campoDados['class_form']);
+					    $classe_add = array_merge($classe_add, explode(',', $classe_temp));
+					}
+					$classe_add = implode(' ', $classe_add);
+					
 					$form->addCampo(array(
 						'campo' => "formCRUD" . $indice_extra . '[' . $campo . ']',
 						'etiqueta' => $campoDados['etiqueta'],
@@ -415,7 +587,10 @@ class cad01
 						'obrigatorio' => $obrigatorio,
 						'help' => $campoDados['help'],
 						'largura' => $campoDados['largura'],
-						'tabela_itens' => $campoDados['tabela_itens']
+						'tabela_itens' => $campoDados['tabela_itens'],
+					    'estilo' => $campoDados['estilo_form'],
+					    'classeadd' => $classe_add,
+					    'autocomplete' => false,
 					));
 				} else {
 					$form->addHidden("formCRUD" . $indice_extra . '[' . $campo . ']', $dados[$campo]);
@@ -425,12 +600,15 @@ class cad01
 				if (!empty($comando)) {
 					$campos_funcao = $this->separaFuncaoBrowser($comando);
 					foreach ($campos_funcao as $cf) {
-						$comando = str_replace('@@' . $cf, isset($dados[$cf]) ? "'$dados[$cf]'" : "''", $comando);
+					    $comando = str_replace('@@' . $cf, "'" . ($dados[$cf] ?? '') . "'", $comando);
 					}
+					
+					
 					//$comando = "'".str_replace(',', "','", $comando)."'";
-					$comando = '$conteudo = ExecMethod(' . $comando . ');';
+					$comando = '$conteudo' . " = $comando;";
 					//echo "$comando \n";
 					$conteudo = '';
+					
 					eval($comando);
 					$pasta = $campoDados['pasta'] == '' ? 1 : $campoDados['pasta'];
 					$form->addConteudoPastas($pasta, $conteudo);
@@ -440,15 +618,27 @@ class cad01
 
 		$form->setPastas($this->_pastasFormulario);
 
+		$link_cancelar = getAppVar('link_redirecionar_cad_cancelar');
+		unsetAppVar('link_redirecionar_cad_cancelar');
+		if($link_cancelar != null){
+			$form->setBotaoCancela($link_cancelar);
+		}
+
 		return $form;
 	}
 
-	public function incluir()
+	public function incluir($dados = array())
 	{
 		$ret = '';
 
-		$formulario = $this->montarFormulario(array(), 'I');
-		$formulario->setEnvio(getLink() . 'salvar&acao=I&id=0', 'formPrograma', 'formPrograma');
+		$formulario = $this->montarFormulario($dados, 'I');
+
+		$link = getAppVar('link_salvar_cad');
+		unsetAppVar('link_salvar_cad');
+		if($link === null){
+			$link = getLink() . 'salvar&acao=I&id=0';
+		}
+		$formulario->setEnvio($link, 'formPrograma', 'formPrograma');
 
 
 		$param = [];
@@ -461,12 +651,20 @@ class cad01
 		return $ret;
 	}
 
-	public function editar()
+	public function editar($id = '')
 	{
-		$id = getParam($_GET, 'id', 0);
+	    if((is_string($id) && $id == '') || (!is_string($id) && $id == 0)){
+	        $id = getParam($_GET, 'id', 0);
+	    }
 		$dados = $this->getEntrada($id);
+		$dados = $this->arrumarCamposPorTipo($dados);
 		$formulario = $this->montarFormulario($dados, 'E');
-		$formulario->setEnvio(getLink() . 'salvar&acao=E&id=' . $id, 'formPrograma', 'formPrograma');
+		$link = getAppVar('link_salvar_cad');
+		unsetAppVar('link_salvar_cad');
+		if($link === null){
+		    $link = getLink() . 'salvar&acao=E&id=' . $id;
+		}
+		$formulario->setEnvio($link, 'formPrograma', 'formPrograma');
 
 		$param = [];
 		$param['icone'] = 'fa-edit';
@@ -477,16 +675,34 @@ class cad01
 
 		return $ret;
 	}
+	
+	protected function arrumarCamposPorTipo($entrada){
+	    $ret = array();
+	    foreach ($this->_sys003 as $campo){
+	        if(isset($entrada[$campo['campo']])){
+    	        if($campo['tipo'] == 'D'){
+    	            $ret[$campo['campo']] = datas::dataS2D($entrada[$campo['campo']]);
+    	        }
+    	        else{
+    	            $ret[$campo['campo']] = $entrada[$campo['campo']];
+    	        }
+	        }
+	        else{
+	            $ret[$campo['campo']] = '';
+	        }
+	    }
+	    
+	    return $ret;
+	}
 
-	public function salvar($id = 0, $dados = array(), $acao = '')
-	{
+	public function salvar($id = 0, $dados = array(), $acao = '', $redireciona = true){
 		$id = $id !== 0 ? $id : getParam($_GET, 'id', 0);
 		$acao = $acao != '' ? $acao : getParam($_GET, 'acao', 'D');
 		$formCrud = count($dados) > 0 ? $dados : getParam($_POST, 'formCRUD', array());
 		if ($acao == 'I') {
 			$sql = $this->montarSqlIncluir($formCrud);
 			//echo '<br>' . $sql . '<br>';
-			query($sql);
+			$this->_ultimoIdIncluido = query($sql);
 			if ($this->_mostrarMensagens) {
 				addPortalMensagem($this->_sys002['unidade'] . ' Criado(a)');
 			}
@@ -504,15 +720,25 @@ class cad01
 		}
 		foreach ($this->_sys003 as $campo_sys003) {
 			if ($campo_sys003['funcao_salvar'] != '') {
-				$metodo = 'ExecMethod(' . $campo_sys003['funcao_salvar'] . ');';
+				$metodo = $campo_sys003['funcao_salvar'] . ';';
 				//echo '<br>' . $metodo . '<br>';
 				eval($metodo);
 			}
 		}
-		return $this->index();
+		
+		if($redireciona){
+    		$link_redirecionar = getAPPvar('link_redirecionar_cad_salvar');
+    		unsetAppVar('link_redirecionar_cad_salvar');
+    		if($link_redirecionar == null){
+    			redireciona(getLink() . 'index');
+    		}
+    		else{
+    			redireciona($link_redirecionar);
+    		}
+		}
 	}
 
-	protected function recuperarIdEntradaPorDados($dados)
+	public function recuperarIdEntradaPorDados($dados)
 	{
 		$ret = '';
 		$dados_sql = array();
@@ -523,7 +749,8 @@ class cad01
 			}
 		}
 		if (count($dados_sql) > 0) {
-			$rows = montaSQL($dados_sql, $this->_tabela);
+			$sql = montaSQL($dados_sql, $this->_tabela, 'SELECT', '', $this->_sys002['chave']);
+			$rows = query($sql);
 			if (is_array($rows) && count($rows) > 0) {
 				$ret = $this->getIdFromArray($rows[0]);
 			}
@@ -557,18 +784,34 @@ class cad01
 		//$temp = array();
 		$dados_sql = array();
 		foreach ($this->_sys003 as $campoDados) {
-			if (isset($dados[$campoDados['campo']]) && $campoDados['real'] == 'R' && $campoDados['campo'] != $this->_sys002['chave']) {
+		    if (isset($dados[$campoDados['campo']]) && $campoDados['real'] == 'R' && (strpos($this->_sys002['chave'], $campoDados['campo']) === false || $this->_sys002['chaveAuto'] == 'N')) {
 				//$temp[] = $campoDados['campo'] . " = '" . $dados[$campoDados['campo']] . "'";
-				if ($campoDados['tipo'] == 'N' && $dados[$campoDados['campo']] == '') {
-					$dados_sql[$campoDados['campo']] = 0;
-				}
-				elseif($campoDados['mascara'] == 'V' || $campoDados['mascara'] == 'V4'){
-				    $dados_sql[$campoDados['campo']] = str_replace(',', '.', $dados[$campoDados['campo']]);
-				}
-				else {
-					$dados_sql[$campoDados['campo']] = $dados[$campoDados['campo']];
-				}
+			    if($dados[$campoDados['campo']] == ''){
+			        if($campoDados['tipo'] == 'N' || in_array($campoDados['mascara'], array('I', 'N', 'V', 'V4'))){
+			            $dados_sql[$campoDados['campo']] = 0;
+			        }
+			        else{
+			            $dados_sql[$campoDados['campo']] = $dados[$campoDados['campo']];
+			        }
+			    }
+			    else{
+			        if(in_array($campoDados['mascara'], array('N', 'V', 'V4')) || in_array($campoDados['tipo'], array('N', 'V'))){
+			            $dados_sql[$campoDados['campo']] = str_replace(array('.', ','), array('', '.'), $dados[$campoDados['campo']]);
+			        }
+			        elseif($campoDados['mascara'] != ''){
+			            $dados_sql[$campoDados['campo']] = str_replace(array('(', ')', '-', '/', '.'), '', $dados[$campoDados['campo']]);
+			        }
+			        elseif($campoDados['tipo'] == 'D'){
+			            $dados_sql[$campoDados['campo']] = datas::dataD2S($dados[$campoDados['campo']]);
+			        }
+			        else{
+			            $dados_sql[$campoDados['campo']] = $dados[$campoDados['campo']];
+			        }
+			    }
 			}
+		}
+		if(!isset($dados_sql[$this->_sys002['campoAtivo']])){
+		    $dados_sql[$this->_sys002['campoAtivo']] = 'S';
 		}
 		if (count($dados_sql) > 0) {
 			$ret = montaSQL($dados_sql, $this->_tabela);
@@ -581,15 +824,31 @@ class cad01
 		$ret = '';
 		$dados_sql = array();
 		foreach ($this->_sys003 as $campoDados) {
-			if (isset($dados[$campoDados['campo']]) && $campoDados['real'] == 'R') {
-				//$temp[] = $campoDados['campo'] . " = '" . $dados[$campoDados['campo']] . "'";
-			    if($campoDados['mascara'] == 'V' || $campoDados['mascara'] == 'V4'){
-			        $dados_sql[$campoDados['campo']] = str_replace(',', '.', $dados[$campoDados['campo']]);
-			    }
-			    else {
-			        $dados_sql[$campoDados['campo']] = $dados[$campoDados['campo']];
-			    }
-			}
+		    if (isset($dados[$campoDados['campo']]) && $campoDados['real'] == 'R' && strpos($this->_sys002['chave'], $campoDados['campo']) === false) {
+		        //$temp[] = $campoDados['campo'] . " = '" . $dados[$campoDados['campo']] . "'";
+		        if($dados[$campoDados['campo']] == ''){
+		            if($campoDados['tipo'] == 'N' || in_array($campoDados['mascara'], array('I', 'N', 'V', 'V4'))){
+		                $dados_sql[$campoDados['campo']] = 0;
+		            }
+		            else{
+		                $dados_sql[$campoDados['campo']] = $dados[$campoDados['campo']];
+		            }
+		        }
+		        else{
+		            if(in_array($campoDados['mascara'], array('N', 'V', 'V4','P')) || in_array($campoDados['tipo'], array('N', 'V','P'))){
+		                $dados_sql[$campoDados['campo']] = str_replace(array('.', ','), array('', '.'), $dados[$campoDados['campo']]);
+		            }
+		            elseif($campoDados['mascara'] != ''){
+		                $dados_sql[$campoDados['campo']] = str_replace(array('(', ')', '-', '/', '.'), '', $dados[$campoDados['campo']]);
+		            }
+		            elseif($campoDados['tipo'] == 'D'){
+		                $dados_sql[$campoDados['campo']] = datas::dataD2S($dados[$campoDados['campo']]);
+		            }
+		            else{
+		                $dados_sql[$campoDados['campo']] = $dados[$campoDados['campo']];
+		            }
+		        }
+		    }
 		}
 		$id_decodificado = $this->decodificarId($id);
 		$where = array();
@@ -604,7 +863,7 @@ class cad01
 		return $ret;
 	}
 
-	public function excluir()
+	public function excluir($redireciona = true)
 	{
 		$id = getParam($_GET, 'id', 0);
 		$id_decodificado = $this->decodificarId($id);
@@ -624,7 +883,9 @@ class cad01
 		if ($this->_mostrarMensagens) {
 			addPortalMensagem($this->_sys002['unidade'] . ' Excluido(a)');
 		}
-		return $this->index();
+		if($redireciona){
+		    redireciona('');
+		}
 	}
 
 	protected function montarSetExcluir()
@@ -638,7 +899,7 @@ class cad01
 		return $ret;
 	}
 
-	protected function decodificarId($id)
+	public function decodificarId($id)
 	{
 		$ret = array();
 		$campos = explode(',', $this->_sys002['chave']);
@@ -691,6 +952,8 @@ class cad01
 				foreach ($this->_camposSys003 as $campo) {
 					$temp[$campo] = $row[$campo];
 				}
+				
+				$temp['width'] = empty($row['tambrowser']) ? null : $row['tambrowser'];
 
 				$this->_sys003[$temp['campo']] = $temp;
 				if ($temp['browser'] == 'S' && (($temp['real'] === 'V' && $temp['funcao_browser'] !== '') || ($temp['real'] === 'R'))) {
@@ -803,7 +1066,8 @@ class cad01
 					$ordem++;
 					$campo = $row['Field'];
 					$tipoTemp = $row['Type'];
-
+                    
+					$tipo = 'T';
 					if (strpos($tipoTemp, 'int') !== false) {
 						$tipo = 'N';
 					} elseif (strpos($tipoTemp, 'char') !== false) {

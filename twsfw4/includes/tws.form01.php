@@ -9,7 +9,7 @@
  */
 
 if(!defined('TWSiNet') || !TWSiNet) die('Esta nao e uma pagina de entrada valida!');
-
+#[\AllowDynamicProperties]
 class form01{
 	
 	
@@ -89,10 +89,11 @@ class form01{
 		$this->_edicao							= verificaParametro($param, 'edicao', true);
 		$this->_formJS 							= verificaParametro($param, 'formJS', false);;
 		$this->_URLcancelar 					= verificaParametro($param, 'cancelar', '');
+		$this->_enviaArquivo 					= verificaParametro($param, 'enviaArquivo', false);
 		
 		$this->_sendNoFooter					= verificaParametro($param, 'sendNoFooter', true);
 		if($this->_sendNoFooter){
-			$this->setBotaoCancela();
+		    $this->setBotaoCancela($this->_URLcancelar);
 		}
 	}
 	
@@ -192,7 +193,10 @@ class form01{
 				}
 			}
 			$param['versao'] = 1;
-			$ret = addBoxInfo($titulo, $ret, $param);
+			$param['titulo'] = $titulo;
+			$param['conteudo'] = $ret;
+			//$ret = addBoxInfo($titulo, $ret, $param);
+			$ret = addCard($param);
 		}
 		
 		if($this->_geraScriptValidarObrigatorios){
@@ -243,6 +247,7 @@ class form01{
 	}
 	
 	private function printFormCampo($campo){
+		
 		$ret = '';
 		$tipo = $this->_edicao ? $campo["tipo"] : "I";
 		//print_r($campo);
@@ -283,6 +288,11 @@ class form01{
 				$campo['mascara'] = 'V';
 				$ret = formbase01::formTexto($campo);
 				break;
+			case "P": // Porcentagem
+			    $campo['mascara'] = 'P';
+			    $campo['tamanho'] = '6';
+			    $ret = formbase01::formTexto($campo);
+			    break;
 			case "T": // Texto
 				if($campo['opcoes'] != "" && strpos($campo['opcoes'], '=') !== false){
 					$campo['lista'] = $this->getOpcoes($campo['opcoes']);
@@ -295,10 +305,21 @@ class form01{
 				$ret = formbase01::formTextArea($campo);
 				break;
 			case "ED": // Editor
+				addPortalJS('plugin', 'ckeditor/ckeditor.js', 'I', 'ckeditor');
 				$ret = formbase01::formEditor($campo);
 				break;
 			case "CB": // checkbox
+			    if(!empty($campo['valor'])){
+			        $campo['checked'] = true;
+			    }
+			    $ret = formbase01::formCheck($campo);
 				break;
+			case "CI": // checkbox não editável
+			    if(!empty($campo['valor'])){
+			        $campo['checked'] = true;
+			    }
+			    $ret = formbase01::formCheck($campo, false);
+			    break;
 			case "S": // Senha
 				$ret = formbase01::formSenha($campo);
 				break;
@@ -316,7 +337,7 @@ class form01{
 			case "I": // Somente impressao
 			default:
 				if($campo['opcoes'] != ""){
-					$campo['lista'] = $this->getOpcoes($campo['opcao']);
+					$campo['lista'] = $this->getOpcoes($campo['opcoes']);
 				}
 				if(is_array($campo['lista'])){
 					$valAtu = $campo['valor'];
@@ -427,6 +448,10 @@ class form01{
 		//Indica se deve aceitar valor negativo (ai vai usar o maskMoney)
 		$this->_campos[$pasta][$linha][$prox]['negativo']		= verificaParametro($param, 'negativo'		, false);
 		$this->_campos[$pasta][$linha][$prox]['idGroup']		= verificaParametro($param, 'idGroup'		, '');
+		$this->_campos[$pasta][$linha][$prox]['estilo']		    = verificaParametro($param, 'estilo'		, '');
+		$this->_campos[$pasta][$linha][$prox]['classe']		    = verificaParametro($param, 'classe'		, '');
+		$this->_campos[$pasta][$linha][$prox]['classeadd']		= verificaParametro($param, 'classeadd'		, '');
+		$this->_campos[$pasta][$linha][$prox]['texto']			= verificaParametro($param, 'texto'			, '');
 		
 		//Se existe uma "tabela" com a lista
 		if(isset($param['tabela_itens']) && !empty($param['tabela_itens'])){
@@ -436,6 +461,7 @@ class form01{
 			
 			$tab = explode('|', $param['tabela_itens']);
 			if(count($tab) > 2){
+			    //formato: tabela|campo_id|campo_etiqueta|ordem_by|where
 				$tabela = $tab[0];
 				$id = $tab[1];
 				$desc = $tab[2];
@@ -600,7 +626,9 @@ class form01{
 	
 	private function geraScriptValidacao($id, $quantPastas = 1){
 		addPortaljavaScript('function verificaObrigatorios(){ ');
-		addPortaljavaScript("	msg = '';");
+		addPortaljavaScript("	var msg = '';");
+		addPortaljavaScript("	var conteudo = '';");
+		
 		addPortaljavaScript("");
 		foreach ($this->_campos as $pasta => $campos){
 			foreach ($campos as $linha => $camp){

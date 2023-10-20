@@ -5,43 +5,187 @@ class kanboard_tarefa_unitaria{
     private $_cor;
     private $_id;
     private $_id_coluna;
-    private $_id_projeto;
+    private $_id_raia;
     private $_posicao;
     private $_id_dono;
     private $_id_caterogira;
     private $_dt_vencimento;
     private $_url;
+    private $_responsavel_id;
     private $_responsavel;
     private $_etiqueta;
     private $_nome_categoria;
     private $_cor_categoria;
     private $_categoria_descricao;
     private $_tags;
+    private $_link_excluir;
+    private $_comentarios;
+    private $_porcentagemSubTarefas;
+    private $_link_fechar;
+    private $_bt_editar;
+    private $_id_projeto;
+    private $_score;
+    private $_mostrarScore;
+    private $_vencido;
     
     public function __construct($param){
         $this->_arrastavel = $param['arrastavel'];//$param['is_draggable'];
         $this->_ativa = $param['ativo'];//($param['is_active'] === '1');
+        $this->_ativa = false;
         $this->_cor = $param['cor'];
         $this->_id = $param['id'];
         $this->_id_coluna = $param['coluna'];
+        $this->_id_raia = $param['raia'];
         $this->_id_projeto = $param['projeto'];
         $this->_posicao = $param['posicao'];
         $this->_id_dono = $param['dono'];
         $this->_id_caterogira = $param['categoria'];
         $this->_dt_vencimento = $param['data_limite'];
-        $this->_url = 'www.google.com';
-        $this->_responsavel = $this->montarResponsavel($param);
+        $this->_url = ($param['link_editar'] ?? (getLink() . 'ajax.editarTarefa')) . "&tarefa={$this->_id}&projeto={$this->_id_projeto}";
+        $this->_responsavel_id = $param['responsavel'] ?? '';
+        $this->_responsavel = !empty($this->_responsavel_id) ? $this->montarResponsavel() : '';
         $this->_etiqueta = $param['etiqueta'];
         $this->_nome_categoria = $param['categoria'];
         $this->_cor_categoria = $param['cor'];//$param['category_color_id'];
         $this->_categoria_descricao = '';//$param['category_description'];
-        $this->_tags = $param['tags'];
+        $this->_tags = $param['tags'] ?? array();
+        $this->_link_excluir = $param['link_excluir'] ?? (getLinkAjax('excluirTarefaForm'));
+        $this->_comentarios = $param['comentarios'] ?? 0;
+        $this->_porcentagemSubTarefas = $param['subTarefas'] ?? '';
+        $this->_link_fechar = ($param['link_fechar'] ?? getLinkAjax('fecharTarefaForm')) . "&tarefa={$this->_id}";
+        $this->_bt_editar = $param['bt_editar'] ?? true;
+        
+        if(!empty($this->_dt_vencimento)){
+            $this->_vencido = (strnatcmp($this->_dt_vencimento, date('Ymd')) === -1);
+        }
+        else{
+            $this->_vencido = false;
+        }
+        
+        $this->_mostrarScore = $param['mostrarScore'] ?? false;
+        $this->_score = $param['score'] ?? '';
+    }
+    
+    public function isVencido(){
+        return $this->_vencido;
+    }
+    
+    static function getTituloTarefa($id){
+        return kanboard_tarefa_unitaria::getCampoTarefa($id, 'etiqueta');
+    }
+    
+    static function getNumeroSubTarefas($id){
+        $ret = 0;
+        $sql = "select count(*) as total from kanboard_sub_tarefas where tarefa = $id";
+        $rows = query($sql);
+        if(is_array($rows) && count($rows) > 0){
+            $ret = $rows[0]['total'];
+        }
+        return $ret;
+    }
+    
+    static function getNumeroSubTarefasFinalizadas($id){
+        $ret = 0;
+        $sql = "select count(*) as total from kanboard_sub_tarefas where tarefa = $id and status = 'f'";
+        $rows = query($sql);
+        if(is_array($rows) && count($rows) > 0){
+            $ret = $rows[0]['total'];
+        }
+        return $ret;
+    }
+    
+    static function getCampoTarefa($id, $campo){
+        $ret = '';
+        $sql = "select $campo from kanboard_tarefas where id = $id";
+        $rows = query($sql);
+        if(is_array($rows) && count($rows) > 0){
+            $ret = $rows[0][$campo];
+        }
+        return $ret;
     }
         
-    private function montarResponsavel($param){
-        return !empty($param['assignee_name']) ? $param['assignee_name'] : (!empty($param['assignee_username']) ? $param['assignee_username'] : '');
+    private function montarResponsavel(){
+        return getUsuario('nome', $this->_responsavel_id);
     }
 
+    
+    private function criarStyleCorTarefa($cor){
+        $ret = 'background-color: {cor1};
+                border-color: {cor2};';
+        $cor1 = '';
+        $cor2 = '';
+        switch ($cor){
+            case 'yellow':
+                $cor1 = 'rgb(245, 247, 196)';
+                $cor2 = 'rgb(223, 227, 45)';
+                break;
+            case 'blue':
+                $cor1 = 'rgb(219, 235, 255)';
+                $cor2 = 'rgb(168, 207, 255)';
+                break;
+            case 'green':
+                $cor1 = 'rgb(189, 244, 203)';
+                $cor2 = 'rgb(74, 227, 113)';
+                break;
+            case 'purple':
+                $cor1 = 'rgb(223, 176, 255)';
+                $cor2 = 'rgb(205, 133, 254)';
+                break;
+            case 'red':
+                $cor1 = 'rgb(255, 187, 187)';
+                $cor2 = 'rgb(255, 151, 151)';
+                break;
+            case 'orange':
+                $cor1 = 'rgb(255, 215, 179)';
+                $cor2 = 'rgb(255, 172, 98)';
+                break;
+            case 'grey':
+                $cor1 = 'rgb(238, 238, 238)';
+                $cor2 = 'rgb(204, 204, 204)';
+                break;
+            case 'brown':
+                $cor1 = '#d7ccc8';
+                $cor2 = '#4e342e';
+                break;
+            case 'deep_orange':
+                $cor1 = '#ffab91';
+                $cor2 = '#e64a19';
+                break;
+            case 'dark_grey':
+                $cor1 = '#cfd8dc';
+                $cor2 = '#455a64';
+                break;
+            case 'pink':
+                $cor1 = '#f48fb1';
+                $cor2 = '#d81b60';
+                break;
+            case 'teal':
+                $cor1 = '#80cbc4';
+                $cor2 = '#00695c';
+                break;
+            case 'cyan':
+                $cor1 = '#b2ebf2';
+                $cor2 = '#00bcd4';
+                break;
+            case 'lime':
+                $cor1 = '#e6ee9c';
+                $cor2 = '#afb42b';
+                break;
+            case 'light_green':
+                $cor1 = '#dcedc8';
+                $cor2 = '#689f38';
+                break;
+            case 'amber':
+                $cor1 = '#ffe082';
+                $cor2 = '#ffa000';
+                break;
+            case 'white':
+                $cor1 = 'rgb(255, 255, 255)';
+                $cor2 = 'rgb(255, 255, 255)';
+        }
+        $ret = str_replace(array('{cor1}', '{cor2}'), array($cor1, $cor2), $ret);
+        return $ret;
+    }
     
     public function __toString(){
         //return $this->retornarHtmlTeste();
@@ -51,16 +195,19 @@ class kanboard_tarefa_unitaria{
         color-' . $this->_cor . '"
      data-task-id="' . $this->_id . '"
      data-column-id="' . $this->_id_coluna . '"
-     data-swimlane-id="' . $this->_id_projeto . '"
+     data-swimlane-id="' . $this->_id_raia . '"
      data-position="' . $this->_posicao . '"
      data-owner-id="' . $this->_id_dono . '"
      data-category-id="' . $this->_id_caterogira . '"
      data-due-date="' . $this->_dt_vencimento . '"
      data-task-url="' . $this->_url . '"
         ' . $this->gerarStyleDiv1() . '>';
-        $ret .= '<div class="task-board-sort-handle" style="display: none;"' . $this->gerarStyleDiv2() . '><i class="fa fa-arrows-alt"' . $this->gerarStyleI() . '></i></div>';
+        $ret .= '<div class="task-board-sort-handle"' . $this->gerarStyleDiv2() . '><i class="fa fa-arrows-alt"' . $this->gerarStyleI() . '></i></div>';
         $ret .= $this->gerarHtmlExpandido();
         $ret .= '</div>';
+        
+        log::gravaLog('260123', $ret);
+        
         return $ret;
     }
     
@@ -268,7 +415,8 @@ class kanboard_tarefa_unitaria{
     position: relative;
     left: 0px;
     top: 0px;
-    box-sizing: initial;"';
+    box-sizing: initial;
+    ' . $this->criarStyleCorTarefa($this->_cor) . '"';
     }
     
     public function getPosicao(){
@@ -284,16 +432,171 @@ class kanboard_tarefa_unitaria{
                         ' . $this->gerarDropdown() .
                         $this->gerarHtmlPrivilegioEditarTarefa() . 
     
-                        (!empty($this->_id_dono) ? '<span class="task-board-assignee">' . $this->_responsavel . '</span>' : '') .
+                        (!empty($this->_responsavel_id) ? '<span class="task-board-assignee">' . $this->_responsavel . '</span>' : '') .
                         $this->avatarDaTarefa() . ' 
                     </div>
             
                     <div class="task-board-title"' . $this->gerarStyleDiv4HtmlExpandido() . '>
                         <a href="/kanboard/task/2" class="" title=""' . $this->gerarStyleAHtmlExpandido() . '>' . $this->_etiqueta . '</a>
                     </div>
+                ' . $this->montarLinhasTags() .'
+                ' . $this->montarLinhaDatasHorarios() . '
                 ' . $this->footer() . '
                 </div>';
         
+        return $ret;
+    }
+    
+    private function montarLinhasTags(){
+        $ret = '<div class="task-board-icons-row">
+            {categoria}
+            {tags}
+            {score}
+        </div>';
+        
+        $temp = '';
+        if(!empty($this->_id_caterogira)){
+            $temp = '<div class="task-board-category-container task-board-category-container-color">
+                        <span class="task-board-category category-' . $this->_nome_categoria . ($this->_cor_categoria ? "color-" . $this->_cor_categoria : '') . '">';
+            $temp .= $this->_nome_categoria;
+            /*
+             * a linha de cima deveria ser isso aqui
+             * <?= $this->url->link(
+             $this->text->e($task['category_name']),
+             'TaskModificationController',
+             'edit',
+             array('task_id' => $task['id']),
+             false,
+             'js-modal-large' . (! empty($task['category_description']) ? ' tooltip' : ''),
+             t('Change category')
+             ) ?>*/
+            if(!empty($this->_categoria_descricao)){
+                /*<?= $this->app->tooltipMarkdown($task['category_description']) ?>*/
+            }
+            $temp .= '   </span>
+                    </div>';
+        }
+        $ret = str_replace('{categoria}', $temp, $ret);
+        
+        $temp = '';
+        if(count($this->_tags) > 0){
+            $temp .= '<div class="task-tags"' . $this->gerarStyleDivTags() . '>
+                        <ul ' . $this->gerarStyleUlTags() . '>';
+            foreach($this->_tags as $tag){
+                $temp .= '<li class="task-tag '. ($tag['cor'] ? "color-" . $tag['cor'] : '') . '" ' . $this->gerarStyleLiTags($tag['cor']) . '>' . $tag['etiqueta'] . '</li>';
+            }
+            $temp .= "</ul></div>";
+        }
+        $ret = str_replace('{tags}', $temp, $ret);
+        
+        $temp = '';
+        if($this->_mostrarScore){
+            $temp .= '<div class="task-tags"' . $this->gerarStyleDivTags() . '>
+                        <ul ' . $this->gerarStyleUlTags() . '>';
+            $temp .= '<li class="task-tag color-white" ' . $this->gerarStyleScore('white') . '>' . $this->_score . '</li>';
+            $temp .= "</ul></div>";
+        }
+        $ret = str_replace('{score}', $temp, $ret);
+
+        
+        return $ret;
+    }
+    
+    private function montarLinhaDatasHorarios(){
+        $ret = '
+                    <div class="task-board-icons-row" {estilo}>
+                        {dt_vencimento}
+                    </div>';
+        
+        $dt_vencimento = '';
+        
+        $margem = false;
+        
+        if(!empty($this->_dt_vencimento)){
+            $margem = true;
+            $dt_vencimento = '<span class="task-date task-date-overdue" ' . $this->gerarStyleDataLimite() . '>
+                            <i class="fa fa-calendar"></i>
+                            ' . datas::dataS2D($this->_dt_vencimento) . '
+                        </span>';
+        }
+        
+        $ret = str_replace('{dt_vencimento}', $dt_vencimento, $ret);
+        
+        
+        $estilo = ' style="text-align: right;"';
+        if($margem){
+            $estilo = " style=\"margin-top: 3px; text-align: right;\"";
+        }
+        $ret = str_replace('{estilo}', $estilo, $ret);
+        log::gravaLog('100123', $ret);
+        return $ret;
+    }
+    
+    private function gerarStyleDataLimite(){
+        $ret = ' style="    --color-primary: #333;
+    --color-light: #999;
+    --color-lighter: #dedede;
+    --color-dark: #000;
+    --color-medium: #555;
+    --color-error: #b94a48;
+    --link-color-primary: #36C;
+    --link-color-focus: #DF5353;
+    --link-color-hover: #333;
+    --alert-color-default: #c09853;
+    --alert-color-success: #468847;
+    --alert-color-error: #b94a48;
+    --alert-color-info: #3a87ad;
+    --alert-color-normal: #333;
+    --alert-background-color-default: #fcf8e3;
+    --alert-background-color-success: #dff0d8;
+    --alert-background-color-error: #f2dede;
+    --alert-background-color-info: #d9edf7;
+    --alert-background-color-normal: #f0f0f0;
+    --alert-border-color-default: #fbeed5;
+    --alert-border-color-success: #d6e9c6;
+    --alert-border-color-error: #eed3d7;
+    --alert-border-color-info: #bce8f1;
+    --alert-border-color-normal: #ddd;
+    --button-default-color: #333;
+    --button-default-background-color: #f5f5f5;
+    --button-default-border-color: #ddd;
+    --button-default-color-focus: #000;
+    --button-default-background-color-focus: #fafafa;
+    --button-default-border-color-focus: #bbb;
+    --button-primary-color: #fff;
+    --button-primary-background-color: #4d90fe;
+    --button-primary-border-color: #3079ed;
+    --button-primary-color-focus: #fff;
+    --button-primary-background-color-focus: #357ae8;
+    --button-primary-border-color-focus: #3079ed;
+    --button-danger-color: #fff;
+    --button-danger-background-color: #d14836;
+    --button-danger-border-color: #b0281a;
+    --button-danger-color-focus: #fff;
+    --button-danger-background-color-focus: #c53727;
+    --button-danger-border-color-focus: #b0281a;
+    --button-disabled-color: #ccc;
+    --button-disabled-background-color: #f7f7f7;
+    --button-disabled-border-color: #ccc;
+    --avatar-color-letter: #fff;
+    --activity-title-color: #000;
+    --activity-title-border-color: #efefef;
+    --activity-event-background-color: #fafafa;
+    --activity-event-hover-color: #fff8dc;
+    --user-mention-color: #000;
+    --board-task-limit-color: #DF5353;
+    font-family: Helvetica,Arial,sans-serif,FontAwesome;
+    text-rendering: optimizeLegibility;
+    border-collapse: collapse;
+    border-spacing: 0;
+    cursor: pointer;
+    -webkit-user-select: none;
+    word-wrap: break-word;
+    font-size: .9em;
+    display: inline-block;
+    margin: 3px 3px 0 0;
+    padding: 1px 3px 1px 3px;
+    ' . ($this->_vencido ? 'color: #b94a48;' : '') . '"';
         return $ret;
     }
     
@@ -628,8 +931,8 @@ class kanboard_tarefa_unitaria{
     -webkit-user-select: none;
     word-wrap: break-word;
     font-size: .9em;
-    margin-top: 5px;
-    margin-bottom: 8px;
+    margin-top: 3px;
+    margin-bottom: 2px;
     box-sizing: initial;"';
     }
     
@@ -699,34 +1002,43 @@ class kanboard_tarefa_unitaria{
     
     private function footer(){
         $ret = '';
-        if(!empty($this->_id_caterogira)){
-            $ret .= '<div class="task-board-category-container task-board-category-container-color">
-                        <span class="task-board-category category-' . $this->_nome_categoria . ($this->_cor_categoria ? "color-" . $this->_cor_categoria : '') . '">';
-            $ret .= $this->_nome_categoria;
-            /*
-             * a linha de cima deveria ser isso aqui
-             * <?= $this->url->link(
-             $this->text->e($task['category_name']),
-             'TaskModificationController',
-             'edit',
-             array('task_id' => $task['id']),
-             false,
-             'js-modal-large' . (! empty($task['category_description']) ? ' tooltip' : ''),
-             t('Change category')
-             ) ?>*/
-            if(!empty($this->_categoria_descricao)){
-                /*<?= $this->app->tooltipMarkdown($task['category_description']) ?>*/
-            }
-            $ret .= '   </span>
-                    </div>';
+        
+        $ret .= '<div class="task-board-icons-row" style = "text-align: right;">';
+        
+        if($this->_porcentagemSubTarefas !== ''){
+            $ret .= '<span ' . $this->gerarStyleSpanSubTarefas() . ' class="tooltip" data-href="' . getLinkAjax('listaSubTarefas') . '&tarefa=' . $this->_id . '"><i class="fa fa-bars fa-fw" style="font-family: Helvetica,Arial,sans-serif,FontAwesome;"></i>' . $this->_porcentagemSubTarefas . '%</span>';
         }
-        if(!empty($this->_tags)){
-            $ret .= '<div class="task-tags">
-                        <ul>';
-            foreach($this->_tags as $tag){
-               $ret .= '<li class="task-tag '. ($tag['color_id'] ? "color-" . $tag['color_id'] : '') . '" ' . $tag['name'] . '</li>';
+        
+        if($this->_comentarios > 0){
+            if(true){ //se editavel
+                $help = $this->_comentarios . ($this->_comentarios === 1 ? ' Comentário' : ' Comentários');
+                $etiqueta = '<i class="fa fa-comments-o fa-fw js-modal-medium" role="img" aria-label="' . $help . '" style="font-family: Helvetica,Arial,sans-serif,FontAwesome;"></i>'.$this->_comentarios;
+                //return $this->helper->url->link($html, $controller, $action, $params, false, 'js-modal-medium', $title);
+                $html_comentarios = '<a href="' . getLinkAjax('listarComentarios') . "&tarefa={$this->_id}" . '" class="js-modal-medium" title=\''.$help.'\' '.' style="display: inline-block;">'.$etiqueta.'</a>';
+                $ret .= $html_comentarios;
+            }
+            else{
+                //se não editavel
             }
         }
+        $ret .= '</div>';
+        /*
+        <?php if ($task['nb_comments'] > 0): ?>
+            <?php if ($not_editable): ?>
+                <?php $aria_label = $task['nb_comments'] == 1 ? t('%d comment', $task['nb_comments']) : t('%d comments', $task['nb_comments']); ?>
+                <span title="<?= $aria_label ?>" role="img" aria-label="<?= $aria_label ?>"><i class="fa fa-comments-o"></i>&nbsp;<?= $task['nb_comments'] ?></span>
+            <?php else: ?>
+                <?= $this->modal->medium(
+                    'comments-o', $icon
+                    $task['nb_comments'], $label
+                    'CommentListController', $controller
+                    'show', $action
+                    array('task_id' => $task['id']), $params
+                    $task['nb_comments'] == 1 ? t('%d comment', $task['nb_comments']) : t('%d comments', $task['nb_comments']) $title
+                ) ?>
+            <?php endif ?>
+        <?php endif ?>
+        
         /*
     
         <?php foreach ($task['tags'] as $tag): ?>
@@ -842,13 +1154,367 @@ class kanboard_tarefa_unitaria{
 </div>
 
 <?= $this->hook->render('template:board:task:footer', array('task' => $task)) ?>*/
-        return '';
+        return $ret;
+    }
+    
+    private function gerarStyleSpanSubTarefas(){
+        $ret = ' style = "    --color-primary: #333;
+    --color-light: #999;
+    --color-lighter: #dedede;
+    --color-dark: #000;
+    --color-medium: #555;
+    --color-error: #b94a48;
+    --link-color-primary: #36C;
+    --link-color-focus: #DF5353;
+    --link-color-hover: #333;
+    --alert-color-default: #c09853;
+    --alert-color-success: #468847;
+    --alert-color-error: #b94a48;
+    --alert-color-info: #3a87ad;
+    --alert-color-normal: #333;
+    --alert-background-color-default: #fcf8e3;
+    --alert-background-color-success: #dff0d8;
+    --alert-background-color-error: #f2dede;
+    --alert-background-color-info: #d9edf7;
+    --alert-background-color-normal: #f0f0f0;
+    --alert-border-color-default: #fbeed5;
+    --alert-border-color-success: #d6e9c6;
+    --alert-border-color-error: #eed3d7;
+    --alert-border-color-info: #bce8f1;
+    --alert-border-color-normal: #ddd;
+    --button-default-color: #333;
+    --button-default-background-color: #f5f5f5;
+    --button-default-border-color: #ddd;
+    --button-default-color-focus: #000;
+    --button-default-background-color-focus: #fafafa;
+    --button-default-border-color-focus: #bbb;
+    --button-primary-color: #fff;
+    --button-primary-background-color: #4d90fe;
+    --button-primary-border-color: #3079ed;
+    --button-primary-color-focus: #fff;
+    --button-primary-background-color-focus: #357ae8;
+    --button-primary-border-color-focus: #3079ed;
+    --button-danger-color: #fff;
+    --button-danger-background-color: #d14836;
+    --button-danger-border-color: #b0281a;
+    --button-danger-color-focus: #fff;
+    --button-danger-background-color-focus: #c53727;
+    --button-danger-border-color-focus: #b0281a;
+    --button-disabled-color: #ccc;
+    --button-disabled-background-color: #f7f7f7;
+    --button-disabled-border-color: #ccc;
+    --avatar-color-letter: #fff;
+    --activity-title-color: #000;
+    --activity-title-border-color: #efefef;
+    --activity-event-background-color: #fafafa;
+    --activity-event-hover-color: #fff8dc;
+    --user-mention-color: #000;
+    --board-task-limit-color: #DF5353;
+    color: var(--color-primary);
+    font-family: Helvetica,Arial,sans-serif;
+    text-rendering: optimizeLegibility;
+    border-collapse: collapse;
+    border-spacing: 0;
+    cursor: pointer;
+    -webkit-user-select: none;
+    word-wrap: break-word;
+    font-size: .8em;
+    text-align: right;
+    line-height: 22px;
+    opacity: .5;
+    margin-left: 4px;
+    text-decoration: none;
+    box-sizing: initial;
+    position: initial;
+    display: inline-block"';
+        return $ret;
+    }
+    
+    private function gerarStyleScore($cor){
+        $ret = ' style="    --color-primary: #333;
+    --color-light: #999;
+    --color-lighter: #dedede;
+    --color-dark: #000;
+    --color-medium: #555;
+    --color-error: #b94a48;
+    --link-color-primary: #36C;
+    --link-color-focus: #DF5353;
+    --link-color-hover: #333;
+    --alert-color-default: #c09853;
+    --alert-color-success: #468847;
+    --alert-color-error: #b94a48;
+    --alert-color-info: #3a87ad;
+    --alert-color-normal: #333;
+    --alert-background-color-default: #fcf8e3;
+    --alert-background-color-success: #dff0d8;
+    --alert-background-color-error: #f2dede;
+    --alert-background-color-info: #d9edf7;
+    --alert-background-color-normal: #f0f0f0;
+    --alert-border-color-default: #fbeed5;
+    --alert-border-color-success: #d6e9c6;
+    --alert-border-color-error: #eed3d7;
+    --alert-border-color-info: #bce8f1;
+    --alert-border-color-normal: #ddd;
+    --button-default-color: #333;
+    --button-default-background-color: #f5f5f5;
+    --button-default-border-color: #ddd;
+    --button-default-color-focus: #000;
+    --button-default-background-color-focus: #fafafa;
+    --button-default-border-color-focus: #bbb;
+    --button-primary-color: #fff;
+    --button-primary-background-color: #4d90fe;
+    --button-primary-border-color: #3079ed;
+    --button-primary-color-focus: #fff;
+    --button-primary-background-color-focus: #357ae8;
+    --button-primary-border-color-focus: #3079ed;
+    --button-danger-color: #fff;
+    --button-danger-background-color: #d14836;
+    --button-danger-border-color: #b0281a;
+    --button-danger-color-focus: #fff;
+    --button-danger-background-color-focus: #c53727;
+    --button-danger-border-color-focus: #b0281a;
+    --button-disabled-color: #ccc;
+    --button-disabled-background-color: #f7f7f7;
+    --button-disabled-border-color: #ccc;
+    --avatar-color-letter: #fff;
+    --activity-title-color: #000;
+    --activity-title-border-color: #efefef;
+    --activity-event-background-color: #fafafa;
+    --activity-event-hover-color: #fff8dc;
+    --user-mention-color: #000;
+    --board-task-limit-color: #DF5353;
+    font-family: Helvetica,Arial,sans-serif,FontAwesome;
+    text-rendering: optimizeLegibility;
+    border-collapse: collapse;
+    border-spacing: 0;
+    cursor: pointer;
+    -webkit-user-select: none;
+    word-wrap: break-word;
+    font-size: .9em;
+    display: inline-block;
+    margin: 3px 3px 0 0;
+    padding: 1px 3px 1px 3px;
+    color: var(--color-primary);
+    border: 1px solid #333;
+    border-radius: 4px;
+    ' . $this->criarStyleCorTarefa($cor) . '"';
+        return $ret;
+    }
+    
+    private function gerarStyleLiTags($cor){
+        $ret = ' style="    --color-primary: #333;
+    --color-light: #999;
+    --color-lighter: #dedede;
+    --color-dark: #000;
+    --color-medium: #555;
+    --color-error: #b94a48;
+    --link-color-primary: #36C;
+    --link-color-focus: #DF5353;
+    --link-color-hover: #333;
+    --alert-color-default: #c09853;
+    --alert-color-success: #468847;
+    --alert-color-error: #b94a48;
+    --alert-color-info: #3a87ad;
+    --alert-color-normal: #333;
+    --alert-background-color-default: #fcf8e3;
+    --alert-background-color-success: #dff0d8;
+    --alert-background-color-error: #f2dede;
+    --alert-background-color-info: #d9edf7;
+    --alert-background-color-normal: #f0f0f0;
+    --alert-border-color-default: #fbeed5;
+    --alert-border-color-success: #d6e9c6;
+    --alert-border-color-error: #eed3d7;
+    --alert-border-color-info: #bce8f1;
+    --alert-border-color-normal: #ddd;
+    --button-default-color: #333;
+    --button-default-background-color: #f5f5f5;
+    --button-default-border-color: #ddd;
+    --button-default-color-focus: #000;
+    --button-default-background-color-focus: #fafafa;
+    --button-default-border-color-focus: #bbb;
+    --button-primary-color: #fff;
+    --button-primary-background-color: #4d90fe;
+    --button-primary-border-color: #3079ed;
+    --button-primary-color-focus: #fff;
+    --button-primary-background-color-focus: #357ae8;
+    --button-primary-border-color-focus: #3079ed;
+    --button-danger-color: #fff;
+    --button-danger-background-color: #d14836;
+    --button-danger-border-color: #b0281a;
+    --button-danger-color-focus: #fff;
+    --button-danger-background-color-focus: #c53727;
+    --button-danger-border-color-focus: #b0281a;
+    --button-disabled-color: #ccc;
+    --button-disabled-background-color: #f7f7f7;
+    --button-disabled-border-color: #ccc;
+    --avatar-color-letter: #fff;
+    --activity-title-color: #000;
+    --activity-title-border-color: #efefef;
+    --activity-event-background-color: #fafafa;
+    --activity-event-hover-color: #fff8dc;
+    --user-mention-color: #000;
+    --board-task-limit-color: #DF5353;
+    font-family: Helvetica,Arial,sans-serif;
+    text-rendering: optimizeLegibility;
+    border-collapse: collapse;
+    border-spacing: 0;
+    cursor: pointer;
+    -webkit-user-select: none;
+    word-wrap: break-word;
+    font-size: .9em;
+    display: inline-block;
+    margin: 3px 3px 0 0;
+    padding: 1px 3px 1px 3px;
+    color: var(--color-primary);
+    border: 1px solid #333;
+    border-radius: 4px;
+    ' . ($cor == '' ? '' : $this->criarStyleCorTarefa($cor)) . '"';
+        return $ret;
+    }
+    
+    private function gerarStyleUlTags(){
+        $ret = ' style = "    --color-primary: #333;
+    --color-light: #999;
+    --color-lighter: #dedede;
+    --color-dark: #000;
+    --color-medium: #555;
+    --color-error: #b94a48;
+    --link-color-primary: #36C;
+    --link-color-focus: #DF5353;
+    --link-color-hover: #333;
+    --alert-color-default: #c09853;
+    --alert-color-success: #468847;
+    --alert-color-error: #b94a48;
+    --alert-color-info: #3a87ad;
+    --alert-color-normal: #333;
+    --alert-background-color-default: #fcf8e3;
+    --alert-background-color-success: #dff0d8;
+    --alert-background-color-error: #f2dede;
+    --alert-background-color-info: #d9edf7;
+    --alert-background-color-normal: #f0f0f0;
+    --alert-border-color-default: #fbeed5;
+    --alert-border-color-success: #d6e9c6;
+    --alert-border-color-error: #eed3d7;
+    --alert-border-color-info: #bce8f1;
+    --alert-border-color-normal: #ddd;
+    --button-default-color: #333;
+    --button-default-background-color: #f5f5f5;
+    --button-default-border-color: #ddd;
+    --button-default-color-focus: #000;
+    --button-default-background-color-focus: #fafafa;
+    --button-default-border-color-focus: #bbb;
+    --button-primary-color: #fff;
+    --button-primary-background-color: #4d90fe;
+    --button-primary-border-color: #3079ed;
+    --button-primary-color-focus: #fff;
+    --button-primary-background-color-focus: #357ae8;
+    --button-primary-border-color-focus: #3079ed;
+    --button-danger-color: #fff;
+    --button-danger-background-color: #d14836;
+    --button-danger-border-color: #b0281a;
+    --button-danger-color-focus: #fff;
+    --button-danger-background-color-focus: #c53727;
+    --button-danger-border-color-focus: #b0281a;
+    --button-disabled-color: #ccc;
+    --button-disabled-background-color: #f7f7f7;
+    --button-disabled-border-color: #ccc;
+    --avatar-color-letter: #fff;
+    --activity-title-color: #000;
+    --activity-title-border-color: #efefef;
+    --activity-event-background-color: #fafafa;
+    --activity-event-hover-color: #fff8dc;
+    --user-mention-color: #000;
+    --board-task-limit-color: #DF5353;
+    color: var(--color-primary);
+    font-family: Helvetica,Arial,sans-serif;
+    text-rendering: optimizeLegibility;
+    border-collapse: collapse;
+    border-spacing: 0;
+    cursor: pointer;
+    -webkit-user-select: none;
+    word-wrap: break-word;
+    font-size: .9em;
+    margin: 0;
+    padding: 0;
+    box-sizing: initial;
+    list-style: none"';
+        return $ret;
+    }
+    
+    private function gerarStyleDivTags(){
+        $ret = ' style="    --color-primary: #333;
+    --color-light: #999;
+    --color-lighter: #dedede;
+    --color-dark: #000;
+    --color-medium: #555;
+    --color-error: #b94a48;
+    --link-color-primary: #36C;
+    --link-color-focus: #DF5353;
+    --link-color-hover: #333;
+    --alert-color-default: #c09853;
+    --alert-color-success: #468847;
+    --alert-color-error: #b94a48;
+    --alert-color-info: #3a87ad;
+    --alert-color-normal: #333;
+    --alert-background-color-default: #fcf8e3;
+    --alert-background-color-success: #dff0d8;
+    --alert-background-color-error: #f2dede;
+    --alert-background-color-info: #d9edf7;
+    --alert-background-color-normal: #f0f0f0;
+    --alert-border-color-default: #fbeed5;
+    --alert-border-color-success: #d6e9c6;
+    --alert-border-color-error: #eed3d7;
+    --alert-border-color-info: #bce8f1;
+    --alert-border-color-normal: #ddd;
+    --button-default-color: #333;
+    --button-default-background-color: #f5f5f5;
+    --button-default-border-color: #ddd;
+    --button-default-color-focus: #000;
+    --button-default-background-color-focus: #fafafa;
+    --button-default-border-color-focus: #bbb;
+    --button-primary-color: #fff;
+    --button-primary-background-color: #4d90fe;
+    --button-primary-border-color: #3079ed;
+    --button-primary-color-focus: #fff;
+    --button-primary-background-color-focus: #357ae8;
+    --button-primary-border-color-focus: #3079ed;
+    --button-danger-color: #fff;
+    --button-danger-background-color: #d14836;
+    --button-danger-border-color: #b0281a;
+    --button-danger-color-focus: #fff;
+    --button-danger-background-color-focus: #c53727;
+    --button-danger-border-color-focus: #b0281a;
+    --button-disabled-color: #ccc;
+    --button-disabled-background-color: #f7f7f7;
+    --button-disabled-border-color: #ccc;
+    --avatar-color-letter: #fff;
+    --activity-title-color: #000;
+    --activity-title-border-color: #efefef;
+    --activity-event-background-color: #fafafa;
+    --activity-event-hover-color: #fff8dc;
+    --user-mention-color: #000;
+    --board-task-limit-color: #DF5353;
+    color: var(--color-primary);
+    font-family: Helvetica,Arial,sans-serif;
+    text-rendering: optimizeLegibility;
+    border-collapse: collapse;
+    border-spacing: 0;
+    cursor: pointer;
+    -webkit-user-select: none;
+    word-wrap: break-word;
+    font-size: .9em;
+    box-sizing: initial;"';
+        return $ret;
     }
     
     private function gerarHtmlPrivilegioEditarTarefa(){
-        return '<a href="/kanboard/?controller=TaskModificationController&amp;action=edit&amp;task_id=' . $this->_id . '" class="js-modal-large" title="" ' . $this->gerarStyleAPrivilegio() . '>
-                    <i class="fa fa-edit fa-fw js-modal-large" aria-hidden="true"' . $this->gerarStyleIPrivilegio() . '></i>
+        $ret = '';
+        if($this->_bt_editar){
+            $ret = '<a href="' . getLinkAjax('btEditarTarefa') . '&tarefa=' . $this->_id . '&projeto=' . $this->_id_projeto . '" class="js-modal-medium" title="" ' . $this->gerarStyleAPrivilegio() . '>
+                    <i class="fa fa-edit fa-fw js-modal-medium" aria-hidden="true"' . $this->gerarStyleIPrivilegio() . '></i>
                 </a>';
+        }
+        return $ret;
     }
     
     private function gerarStyleAPrivilegio(){
@@ -992,32 +1658,317 @@ class kanboard_tarefa_unitaria{
         return '';
     }
     
+    private function getCaminhoFoto($id){
+        global $config;
+        $ret = '';
+        $avatar = $config['baseS3'].'imagens/avatares/'.$id.'.jpg';
+        $ret = $config['imagens'].'avatares/'.$id.'.jpg';
+        if(!file_exists($avatar)){
+            $avatar = $config['baseS3'].'imagens/avatares/'.$id.'.png';
+            $ret = $config['imagens'].'avatares/'.$id.'.png';
+            if(!file_exists($avatar)){
+                $avatar = $config['baseS3'].'imagens/avatares/'.$id.'.gif';
+                $ret = $config['imagens'].'avatares/'.$id.'.gif';
+                if(!file_exists($avatar)){
+                    $ret = $config['imagens'].'avatares/avatarGenerico.jpg';
+                }
+            }
+        }
+        return $ret;
+    }
+    
     private function avatarDaTarefa(){
-        /*
+        $ret = '';
+        if(!empty($this->_responsavel_id) && $this->_responsavel_id != 0){
+            $pode_modificar = true;
+            $ret = '    <div class="task-board-avatars"' . $this->gerarStyleDivAvatar() . '>
+                        <span ';
+            if($pode_modificar){
+                $ret .= 'class="task-board-assignee task-board-change-assignee" data-url="' . $this->_url . '"';
+            }
+            else{
+                $ret .= 'class="task-board-assignee"';
+            }
+            $ret .= $this->gerarStyleSpanAvatar() . '>';
+            $html = '<img src="' . $this->getCaminhoFoto($this->_responsavel_id) .  '" alt="' . $this->_responsavel . '" title="' . $this->_responsavel . '" ' . $this->gerarStyleImgAvatar() . ' width="20" height="20">';
+            $ret .= '<div class="avatar avatar-20 avatar-inline"' . $this->gerarStyleDiv20Avatar() . '>'.$html.'</div>';
+            $ret .= '</span>
+                    </div>';
+        }
+        return $ret;
     }
-        <?php if (! empty($task['owner_id'])): ?>
-<div class="task-board-avatars">
-    <span
-        <?php if ($this->user->hasProjectAccess('TaskModificationController', 'edit', $task['project_id'])): ?>
-        class="task-board-assignee task-board-change-assignee"
-        data-url="<?= $this->url->href('TaskModificationController', 'edit', array('task_id' => $task['id'])) ?>">
-    <?php else: ?>
-        class="task-board-assignee">
-    <?php endif ?>
-        <?= $this->avatar->small(
-            $task['owner_id'],
-            $task['assignee_username'],
-            $task['assignee_name'],
-            $task['assignee_email'],
-            $task['assignee_avatar_path'],
-            'avatar-inline'
-        ) ?>
-    </span>
-</div>
-<?php endif ?>
+    
+    private function gerarStyleImgAvatar(){
+        $ret = ' style="    --color-primary: #333;
+    --color-light: #999;
+    --color-lighter: #dedede;
+    --color-dark: #000;
+    --color-medium: #555;
+    --color-error: #b94a48;
+    --link-color-primary: #36C;
+    --link-color-focus: #DF5353;
+    --link-color-hover: #333;
+    --alert-color-default: #c09853;
+    --alert-color-success: #468847;
+    --alert-color-error: #b94a48;
+    --alert-color-info: #3a87ad;
+    --alert-color-normal: #333;
+    --alert-background-color-default: #fcf8e3;
+    --alert-background-color-success: #dff0d8;
+    --alert-background-color-error: #f2dede;
+    --alert-background-color-info: #d9edf7;
+    --alert-background-color-normal: #f0f0f0;
+    --alert-border-color-default: #fbeed5;
+    --alert-border-color-success: #d6e9c6;
+    --alert-border-color-error: #eed3d7;
+    --alert-border-color-info: #bce8f1;
+    --alert-border-color-normal: #ddd;
+    --button-default-color: #333;
+    --button-default-background-color: #f5f5f5;
+    --button-default-border-color: #ddd;
+    --button-default-color-focus: #000;
+    --button-default-background-color-focus: #fafafa;
+    --button-default-border-color-focus: #bbb;
+    --button-primary-color: #fff;
+    --button-primary-background-color: #4d90fe;
+    --button-primary-border-color: #3079ed;
+    --button-primary-color-focus: #fff;
+    --button-primary-background-color-focus: #357ae8;
+    --button-primary-border-color-focus: #3079ed;
+    --button-danger-color: #fff;
+    --button-danger-background-color: #d14836;
+    --button-danger-border-color: #b0281a;
+    --button-danger-color-focus: #fff;
+    --button-danger-background-color-focus: #c53727;
+    --button-danger-border-color-focus: #b0281a;
+    --button-disabled-color: #ccc;
+    --button-disabled-background-color: #f7f7f7;
+    --button-disabled-border-color: #ccc;
+    --avatar-color-letter: #fff;
+    --activity-title-color: #000;
+    --activity-title-border-color: #efefef;
+    --activity-event-background-color: #fafafa;
+    --activity-event-hover-color: #fff8dc;
+    --user-mention-color: #000;
+    --board-task-limit-color: #DF5353;
+    color: var(--color-primary);
+    font-family: Helvetica,Arial,sans-serif;
+    text-rendering: optimizeLegibility;
+    border-collapse: collapse;
+    border-spacing: 0;
+    -webkit-user-select: none;
+    word-wrap: break-word;
+    font-size: .9em;
+    text-align: right;
+    cursor: pointer;
+    vertical-align: bottom;
+    border-radius: 10px;
+    box-sizing: initial;"';
+        return $ret;
     }
-    */
-        return '';
+    
+    private function gerarStyleDiv20Avatar(){
+        $ret = ' style="    --color-primary: #333;
+    --color-light: #999;
+    --color-lighter: #dedede;
+    --color-dark: #000;
+    --color-medium: #555;
+    --color-error: #b94a48;
+    --link-color-primary: #36C;
+    --link-color-focus: #DF5353;
+    --link-color-hover: #333;
+    --alert-color-default: #c09853;
+    --alert-color-success: #468847;
+    --alert-color-error: #b94a48;
+    --alert-color-info: #3a87ad;
+    --alert-color-normal: #333;
+    --alert-background-color-default: #fcf8e3;
+    --alert-background-color-success: #dff0d8;
+    --alert-background-color-error: #f2dede;
+    --alert-background-color-info: #d9edf7;
+    --alert-background-color-normal: #f0f0f0;
+    --alert-border-color-default: #fbeed5;
+    --alert-border-color-success: #d6e9c6;
+    --alert-border-color-error: #eed3d7;
+    --alert-border-color-info: #bce8f1;
+    --alert-border-color-normal: #ddd;
+    --button-default-color: #333;
+    --button-default-background-color: #f5f5f5;
+    --button-default-border-color: #ddd;
+    --button-default-color-focus: #000;
+    --button-default-background-color-focus: #fafafa;
+    --button-default-border-color-focus: #bbb;
+    --button-primary-color: #fff;
+    --button-primary-background-color: #4d90fe;
+    --button-primary-border-color: #3079ed;
+    --button-primary-color-focus: #fff;
+    --button-primary-background-color-focus: #357ae8;
+    --button-primary-border-color-focus: #3079ed;
+    --button-danger-color: #fff;
+    --button-danger-background-color: #d14836;
+    --button-danger-border-color: #b0281a;
+    --button-danger-color-focus: #fff;
+    --button-danger-background-color-focus: #c53727;
+    --button-danger-border-color-focus: #b0281a;
+    --button-disabled-color: #ccc;
+    --button-disabled-background-color: #f7f7f7;
+    --button-disabled-border-color: #ccc;
+    --avatar-color-letter: #fff;
+    --activity-title-color: #000;
+    --activity-title-border-color: #efefef;
+    --activity-event-background-color: #fafafa;
+    --activity-event-hover-color: #fff8dc;
+    --user-mention-color: #000;
+    --board-task-limit-color: #DF5353;
+    color: var(--color-primary);
+    font-family: Helvetica,Arial,sans-serif;
+    text-rendering: optimizeLegibility;
+    border-collapse: collapse;
+    border-spacing: 0;
+    -webkit-user-select: none;
+    word-wrap: break-word;
+    font-size: .9em;
+    text-align: right;
+    cursor: pointer;
+    display: inline-block;
+    margin-right: 3px;
+    box-sizing: initial;"';
+        return $ret;
+    }
+    
+    private function gerarStyleSpanAvatar(){
+        $ret = ' style="    --color-primary: #333;
+    --color-light: #999;
+    --color-lighter: #dedede;
+    --color-dark: #000;
+    --color-medium: #555;
+    --color-error: #b94a48;
+    --link-color-primary: #36C;
+    --link-color-focus: #DF5353;
+    --link-color-hover: #333;
+    --alert-color-default: #c09853;
+    --alert-color-success: #468847;
+    --alert-color-error: #b94a48;
+    --alert-color-info: #3a87ad;
+    --alert-color-normal: #333;
+    --alert-background-color-default: #fcf8e3;
+    --alert-background-color-success: #dff0d8;
+    --alert-background-color-error: #f2dede;
+    --alert-background-color-info: #d9edf7;
+    --alert-background-color-normal: #f0f0f0;
+    --alert-border-color-default: #fbeed5;
+    --alert-border-color-success: #d6e9c6;
+    --alert-border-color-error: #eed3d7;
+    --alert-border-color-info: #bce8f1;
+    --alert-border-color-normal: #ddd;
+    --button-default-color: #333;
+    --button-default-background-color: #f5f5f5;
+    --button-default-border-color: #ddd;
+    --button-default-color-focus: #000;
+    --button-default-background-color-focus: #fafafa;
+    --button-default-border-color-focus: #bbb;
+    --button-primary-color: #fff;
+    --button-primary-background-color: #4d90fe;
+    --button-primary-border-color: #3079ed;
+    --button-primary-color-focus: #fff;
+    --button-primary-background-color-focus: #357ae8;
+    --button-primary-border-color-focus: #3079ed;
+    --button-danger-color: #fff;
+    --button-danger-background-color: #d14836;
+    --button-danger-border-color: #b0281a;
+    --button-danger-color-focus: #fff;
+    --button-danger-background-color-focus: #c53727;
+    --button-danger-border-color-focus: #b0281a;
+    --button-disabled-color: #ccc;
+    --button-disabled-background-color: #f7f7f7;
+    --button-disabled-border-color: #ccc;
+    --avatar-color-letter: #fff;
+    --activity-title-color: #000;
+    --activity-title-border-color: #efefef;
+    --activity-event-background-color: #fafafa;
+    --activity-event-hover-color: #fff8dc;
+    --user-mention-color: #000;
+    --board-task-limit-color: #DF5353;
+    color: var(--color-primary);
+    font-family: Helvetica,Arial,sans-serif;
+    text-rendering: optimizeLegibility;
+    border-collapse: collapse;
+    border-spacing: 0;
+    -webkit-user-select: none;
+    word-wrap: break-word;
+    font-size: .9em;
+    text-align: right;
+    cursor: pointer;
+    box-sizing: initial;"';
+        return $ret;
+    }
+    
+    private function gerarStyleDivAvatar(){
+        $ret = ' style="    --color-primary: #333;
+    --color-light: #999;
+    --color-lighter: #dedede;
+    --color-dark: #000;
+    --color-medium: #555;
+    --color-error: #b94a48;
+    --link-color-primary: #36C;
+    --link-color-focus: #DF5353;
+    --link-color-hover: #333;
+    --alert-color-default: #c09853;
+    --alert-color-success: #468847;
+    --alert-color-error: #b94a48;
+    --alert-color-info: #3a87ad;
+    --alert-color-normal: #333;
+    --alert-background-color-default: #fcf8e3;
+    --alert-background-color-success: #dff0d8;
+    --alert-background-color-error: #f2dede;
+    --alert-background-color-info: #d9edf7;
+    --alert-background-color-normal: #f0f0f0;
+    --alert-border-color-default: #fbeed5;
+    --alert-border-color-success: #d6e9c6;
+    --alert-border-color-error: #eed3d7;
+    --alert-border-color-info: #bce8f1;
+    --alert-border-color-normal: #ddd;
+    --button-default-color: #333;
+    --button-default-background-color: #f5f5f5;
+    --button-default-border-color: #ddd;
+    --button-default-color-focus: #000;
+    --button-default-background-color-focus: #fafafa;
+    --button-default-border-color-focus: #bbb;
+    --button-primary-color: #fff;
+    --button-primary-background-color: #4d90fe;
+    --button-primary-border-color: #3079ed;
+    --button-primary-color-focus: #fff;
+    --button-primary-background-color-focus: #357ae8;
+    --button-primary-border-color-focus: #3079ed;
+    --button-danger-color: #fff;
+    --button-danger-background-color: #d14836;
+    --button-danger-border-color: #b0281a;
+    --button-danger-color-focus: #fff;
+    --button-danger-background-color-focus: #c53727;
+    --button-danger-border-color-focus: #b0281a;
+    --button-disabled-color: #ccc;
+    --button-disabled-background-color: #f7f7f7;
+    --button-disabled-border-color: #ccc;
+    --avatar-color-letter: #fff;
+    --activity-title-color: #000;
+    --activity-title-border-color: #efefef;
+    --activity-event-background-color: #fafafa;
+    --activity-event-hover-color: #fff8dc;
+    --user-mention-color: #000;
+    --board-task-limit-color: #DF5353;
+    color: var(--color-primary);
+    font-family: Helvetica,Arial,sans-serif;
+    text-rendering: optimizeLegibility;
+    border-collapse: collapse;
+    border-spacing: 0;
+    cursor: pointer;
+    -webkit-user-select: none;
+    word-wrap: break-word;
+    font-size: .9em;
+    text-align: right;
+    float: right;
+    box-sizing: initial;"';
+        return $ret;
     }
     
     private function gerarDropdown(){
@@ -1028,36 +1979,35 @@ class kanboard_tarefa_unitaria{
                     </a>';
         $menu_real = '
                     <ul ' . $this->gerarStyleUlDrop() . '>
+                        <!-- <li> <a href="/kanboard/?controller=TaskModificationController&amp;action=assignToMe&amp;task_id=2&amp;csrf_token=f0014379618d8ddfad3f8a9719d3330b0cb6bcd9bcfa3bb48405f68eca4ed155&amp;redirect=board" class="" title=""><i class="fa fa-fw fa-hand-o-right" aria-hidden="true"></i>Atribuir-me</a></li>
                         <li>
-                            <a href="/kanboard/?controller=TaskModificationController&amp;action=assignToMe&amp;task_id=2&amp;csrf_token=f0014379618d8ddfad3f8a9719d3330b0cb6bcd9bcfa3bb48405f68eca4ed155&amp;redirect=board" class="" title=""><i class="fa fa-fw fa-hand-o-right" aria-hidden="true"></i>Assign to me</a>            </li>
+                            <a href="/kanboard/?controller=TaskModificationController&amp;action=start&amp;task_id=2&amp;csrf_token=32374ee456a786edf89e5311f4775afddbe8c2739e240829614b42b280243b9f&amp;redirect=board" class="" title=""><i class="fa fa-fw fa-play" aria-hidden="true"></i>Definir automaticamente a data de início</a>            </li>
                         <li>
-                            <a href="/kanboard/?controller=TaskModificationController&amp;action=start&amp;task_id=2&amp;csrf_token=32374ee456a786edf89e5311f4775afddbe8c2739e240829614b42b280243b9f&amp;redirect=board" class="" title=""><i class="fa fa-fw fa-play" aria-hidden="true"></i>Set the start date automatically</a>            </li>
+                            <a href="/kanboard/?controller=TaskModificationController&amp;action=edit&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-edit fa-fw js-modal-medium" aria-hidden="true"></i>Editar tarefa</a>            </li> -->
+                        <li ' . $this->gerarStyleLiDrop() . '>
+                            <a href="' . getLinkAjax('formSubTarefa') . '&tarefa=' . $this->_id . '" class="js-modal-medium" title=""><i class="fa fa-plus fa-fw js-modal-medium" aria-hidden="true"></i>Adicionar uma subtarefa</a>        </li>
+                  <!--  <li>
+                            <a href="/kanboard/?controller=TaskInternalLinkController&amp;action=create&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-code-fork fa-fw js-modal-medium" aria-hidden="true"></i>Adicionar um link interno</a>        </li>
                         <li>
-                            <a href="/kanboard/?controller=TaskModificationController&amp;action=edit&amp;task_id=2" class="js-modal-large" title=""><i class="fa fa-edit fa-fw js-modal-large" aria-hidden="true"></i>Edit the task</a>            </li>
+                            <a href="/kanboard/?controller=TaskExternalLinkController&amp;action=find&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-external-link fa-fw js-modal-medium" aria-hidden="true"></i>Adicionar um link externo</a>        </li> -->
+                        <li ' . $this->gerarStyleLiDrop() . '>
+                            <a href="' . getLinkAjax('formularioComentario') . '&tarefa=' . $this->_id . '" class="js-modal-small" title=""><i class="fa fa-comment-o fa-fw js-modal-small" aria-hidden="true"></i>Adiconar um comentário</a>        </li>
+                       <!--  <li>
+                            <a href="/kanboard/?controller=TaskFileController&amp;action=create&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-file fa-fw js-modal-medium" aria-hidden="true"></i>Anexar um documento</a>        </li>
                         <li>
-                            <a href="/kanboard/?controller=SubtaskController&amp;action=create&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-plus fa-fw js-modal-medium" aria-hidden="true"></i>Add a sub-task</a>        </li>
+                            <a href="/kanboard/?controller=TaskPopoverController&amp;action=screenshot&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-camera fa-fw js-modal-medium" aria-hidden="true"></i>Adiconar uma captura de tela</a>        </li>
                         <li>
-                            <a href="/kanboard/?controller=TaskInternalLinkController&amp;action=create&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-code-fork fa-fw js-modal-medium" aria-hidden="true"></i>Add internal link</a>        </li>
+                            <a href="/kanboard/?controller=TaskDuplicationController&amp;action=duplicate&amp;task_id=2" class="js-modal-small" title=""><i class="fa fa-files-o fa-fw js-modal-small" aria-hidden="true"></i>Duplicar</a>        </li>
                         <li>
-                            <a href="/kanboard/?controller=TaskExternalLinkController&amp;action=find&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-external-link fa-fw js-modal-medium" aria-hidden="true"></i>Add external link</a>        </li>
+                            <a href="/kanboard/?controller=TaskDuplicationController&amp;action=copy&amp;task_id=2&amp;project_id=1" class="js-modal-small" title=""><i class="fa fa-clipboard fa-fw js-modal-small" aria-hidden="true"></i>Duplicar para outro projeto</a>        </li>
                         <li>
-                            <a href="/kanboard/?controller=CommentController&amp;action=create&amp;task_id=2" class="js-modal-small" title=""><i class="fa fa-comment-o fa-fw js-modal-small" aria-hidden="true"></i>Add a comment</a>        </li>
+                            <a href="/kanboard/?controller=TaskDuplicationController&amp;action=move&amp;task_id=2&amp;project_id=1" class="js-modal-small" title=""><i class="fa fa-clone fa-fw js-modal-small" aria-hidden="true"></i>Mover para outro projeto</a>        </li>
                         <li>
-                            <a href="/kanboard/?controller=TaskFileController&amp;action=create&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-file fa-fw js-modal-medium" aria-hidden="true"></i>Attach a document</a>        </li>
+                            <a href="/kanboard/?controller=TaskMailController&amp;action=create&amp;task_id=2" class="js-modal-small" title=""><i class="fa fa-paper-plane fa-fw js-modal-small" aria-hidden="true"></i>Enviar por e-mail</a>        </li> -->
+                        <li ' . $this->gerarStyleLiDrop() . '>
+                            <a href="' . $this->_link_excluir . '&tarefa=' . $this->_id . '" class="js-modal-confirm" title=""><i class="fa fa-trash-o fa-fw js-modal-confirm" aria-hidden="true"></i>Remover</a>            </li>
                         <li>
-                            <a href="/kanboard/?controller=TaskPopoverController&amp;action=screenshot&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-camera fa-fw js-modal-medium" aria-hidden="true"></i>Add a screenshot</a>        </li>
-                        <li>
-                            <a href="/kanboard/?controller=TaskDuplicationController&amp;action=duplicate&amp;task_id=2" class="js-modal-small" title=""><i class="fa fa-files-o fa-fw js-modal-small" aria-hidden="true"></i>Duplicate</a>        </li>
-                        <li>
-                            <a href="/kanboard/?controller=TaskDuplicationController&amp;action=copy&amp;task_id=2&amp;project_id=1" class="js-modal-small" title=""><i class="fa fa-clipboard fa-fw js-modal-small" aria-hidden="true"></i>Duplicate to project</a>        </li>
-                        <li>
-                            <a href="/kanboard/?controller=TaskDuplicationController&amp;action=move&amp;task_id=2&amp;project_id=1" class="js-modal-small" title=""><i class="fa fa-clone fa-fw js-modal-small" aria-hidden="true"></i>Move to project</a>        </li>
-                        <li>
-                            <a href="/kanboard/?controller=TaskMailController&amp;action=create&amp;task_id=2" class="js-modal-small" title=""><i class="fa fa-paper-plane fa-fw js-modal-small" aria-hidden="true"></i>Send by email</a>        </li>
-                        <li>
-                            <a href="/kanboard/?controller=TaskSuppressionController&amp;action=confirm&amp;task_id=2" class="js-modal-confirm" title=""><i class="fa fa-trash-o fa-fw js-modal-confirm" aria-hidden="true"></i>Remove</a>            </li>
-                        <li>
-                            <a href="/kanboard/?controller=TaskStatusController&amp;action=close&amp;task_id=2" class="js-modal-confirm" title=""><i class="fa fa-times fa-fw js-modal-confirm" aria-hidden="true"></i>Close this task</a>                    </li>
+                            <a href="' . $this->_link_fechar . "&tarefa={$this->_id}" . '" class="js-modal-confirm" title=""><i class="fa fa-times fa-fw js-modal-confirm" aria-hidden="true"></i>Finalizar esta tarefa</a>                    </li>
                     </ul>';
         $ret .= $menu_real;
         $ret .= '
@@ -1127,9 +2077,11 @@ class kanboard_tarefa_unitaria{
     -webkit-user-select: none;
     word-wrap: break-word;
     font-size: .9em;
-    margin: 0;
     padding: 0;
-    margin-left: 20px;
+    margin-left: 5px;
+    margin-right: 5px;
+    margin-top: 10px;
+    margin-bottom: 5px;
     box-sizing: initial;"';
         return $ret;
     }
@@ -1200,7 +2152,9 @@ class kanboard_tarefa_unitaria{
     padding: 0;
     display: none;
     box-sizing: initial;
-    position: absolute;"';
+    position: absolute;
+    background-color: #fff;
+    list-style-type: none;"';
         return $ret;
     }
     
@@ -1509,7 +2463,7 @@ class kanboard_tarefa_unitaria{
                                     <li>
                 <a href="/kanboard/?controller=TaskModificationController&amp;action=start&amp;task_id=2&amp;csrf_token=e4fd27be740b24f0d4be7eeeca07ca1e2143d4e92fd4cfb5a4518f491f42c440&amp;redirect=board" class="" title=""><i class="fa fa-fw fa-play" aria-hidden="true"></i>Set the start date automatically</a>            </li>
                         <li>
-                <a href="/kanboard/?controller=TaskModificationController&amp;action=edit&amp;task_id=2" class="js-modal-large" title=""><i class="fa fa-edit fa-fw js-modal-large" aria-hidden="true"></i>Edit the task</a>            </li>
+                <a href="/kanboard/?controller=TaskModificationController&amp;action=edit&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-edit fa-fw js-modal-medium" aria-hidden="true"></i>Edit the task</a>            </li>
                 <li>
             <a href="/kanboard/?controller=SubtaskController&amp;action=create&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-plus fa-fw js-modal-medium" aria-hidden="true"></i>Add a sub-task</a>        </li>
         
@@ -1543,7 +2497,7 @@ class kanboard_tarefa_unitaria{
         
             </ul>
 </div>
-                                            <a href="/kanboard/?controller=TaskModificationController&amp;action=edit&amp;task_id=2" class="js-modal-large" title=""><i class="fa fa-edit fa-fw js-modal-large" aria-hidden="true"></i></a>                                    
+                                            <a href="/kanboard/?controller=TaskModificationController&amp;action=edit&amp;task_id=2" class="js-modal-medium" title=""><i class="fa fa-edit fa-fw js-modal-medium" aria-hidden="true"></i></a>                                    
                 
                             </div>
 

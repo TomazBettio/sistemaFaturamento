@@ -32,7 +32,8 @@ class formbase01{
 		}
 		if(!issetAppVar('formBase_tamanhoSelect')){
 			//Tamanho select
-			putAppVar('formBase_tamanhoSelect'	, ' form-select-sm');
+			//putAppVar('formBase_tamanhoSelect'	, ' form-select-sm');
+		    putAppVar('formBase_tamanhoSelect'	, ' form-control-sm');
 		}
 		if(!issetAppVar('formBase_formGroup')){
 			//Se deve imprimir o 'form-group'
@@ -47,7 +48,8 @@ class formbase01{
 			case 'grande':
 				putAppVar('formBase_tamanhoForm'	,' form-control-lg');
 				putAppVar('formBase_tamanhoEtiqueta',' col-form-label-lg');
-				putAppVar('formBase_tamanhoSelect'	,' custom-select-lg');
+				putAppVar('formBase_tamanhoSelect'	,' form-control-lg');
+				//putAppVar('formBase_tamanhoSelect'	,' custom-select-lg');
 				break;
 			case 'medio':
 			case 'padrao':
@@ -60,7 +62,8 @@ class formbase01{
 			default:
 				putAppVar('formBase_tamanhoForm'	,' form-control-sm');
 				putAppVar('formBase_tamanhoEtiqueta',' col-form-label-sm');
-				putAppVar('formBase_tamanhoSelect'	,' form-select-sm');
+				//putAppVar('formBase_tamanhoSelect'	,' form-select-sm');
+				putAppVar('formBase_tamanhoSelect'	,' form-control-sm');
 				break;
 		}
 	}
@@ -139,6 +142,18 @@ class formbase01{
 		$param['data-target'] 	= $param['data-target']		?? '';
 		$param['data-placement']= $param['data-placement']	?? '';
 		$param['data-html']		= $param['data-html']		?? '';
+		$param['data-widget']   = $param['data-widget']     ?? '';
+		
+		$param['ativo'] = $param['ativo'] ?? true;
+		$ativo 	= $param['ativo'] !== false ? '' : ' disabled ';
+		
+		$id = $param['id'] ?? ajustaID($param['texto']);
+		if(isset($param['id']) && $param['id'] !=''){
+			$id = ' id="'.$param['id'].'"';
+		}else{
+			$id = ' id="'.$id.'"';
+			$param['id'] = $id;
+		}
 		
 		$help 	= $param['help'] ?? '';
 		$help	= str_replace('"',	"'", $help);
@@ -164,39 +179,7 @@ class formbase01{
 				break;
 		}
 		
-		switch ($cor) {
-			case 'primary':
-				$classe['cor'] = 'btn-primary';
-				break;
-			case 'secondary':
-				$classe['cor'] = 'btn-secondary';
-				break;
-			case 'success':
-				$classe['cor'] = 'btn-success';
-				break;
-			case 'info':
-				$classe['cor'] = 'btn-info';
-				break;
-			case 'warning':
-				$classe['cor'] = 'btn-warning';
-				break;
-			case 'danger':
-				$classe['cor'] = 'btn-danger';
-				break;
-			case 'light':
-				$classe['cor'] = 'btn-light';
-				break;
-			case 'dark':
-				$classe['cor'] = 'btn-dark';
-				break;
-			case 'link':
-				$classe['cor'] = 'btn-link';
-				break;
-			default:
-				//$cor = COR_PADRAO_BOTOES;
-				$classe['cor'] = 'btn-'.COR_PADRAO_BOTOES;
-				break;
-		}
+		$classe['cor'] = self::getCorBotao($cor);
 		
 		// Expande o botão para todo o espaço
 		if ($bloco){
@@ -235,16 +218,14 @@ class formbase01{
 			$type = ' type="'.$param['type'].'"';
 		}
 		
+		$form = '';
+		if(isset($param['form']) && $param['form'] != ''){
+		    $form = ' form="' . $param['form'] . '"';
+		}
+		
 		$onclick = '';
 		if(isset($param['onclick']) && $param['onclick'] !=''){
 			$onclick = ' onclick="'.$param['onclick'].'"';
-		}
-		
-		$id = $param['id'] ?? ajustaID($param['texto']);
-		if(isset($param['id']) && $param['id'] !=''){
-			$id = ' id="'.$param['id'].'"';
-		}else{
-			$id = ' id="'.$id.'"';
 		}
 		
 		$data_toggle = '';
@@ -255,17 +236,25 @@ class formbase01{
 		if(!empty($param['data-target'])){
 			$data_target = ' data-target="'.$param['data-target'].'"';
 		}
+		$data_widget = '';
+		if(!empty($param['data-widget'])){
+		    $data_widget = ' data-widget="'.$param['data-widget'].'"';
+		}
 		if(!empty($help)){
 			$help = ' data-original-title="'.$help.'"';
 		}
+		$estilo = $param['style'] ?? '';
+		if(!empty($estilo)){
+		    $estilo		= ' style="' . $param['style']	. '"';
+		}
 		
-		$diversos = $textoAlt.$onclick.$id.$data_toggle.$data_target.$help;
+		$diversos = $textoAlt.$onclick.$id.$data_toggle.$data_target.$help.$data_widget.$form.$estilo;
 		if($tipo == 'botao') {
-			$ret = '<button '.$type.' class="'.$class.'" '.$diversos.'>'.$texto.'</button>';
+			$ret = '<button '.$type.' class="'.$class.'" '.$diversos.$ativo.'>'.$texto.'</button>';
 		}elseif($tipo == 'link') {
-			$ret = '<a href="'.$param['url'].'" class="'.$class.'" role="button"'.$diversos.'>'.$texto.'</a>';
+			$ret = '<a href="'.$param['url'].'" class="'.$class.'" role="button"'.$diversos.$ativo.'>'.$texto.'</a>';
 		}elseif($tipo == 'input'){
-			$ret .= '<input title="'.$texto.'"  class="'.$class.'"'.$diversos.'>';
+			$ret .= '<input title="'.$texto.'"  class="'.$class.'"'.$diversos.$ativo.'>';
 		}
 		return $ret;
 	}
@@ -290,10 +279,12 @@ class formbase01{
 		$classe		= verificaParametro($param, 'classe');
 		if(empty($classe)){
 			$classe = $classeAdd;
+		}else{
+			$classe = $classe.' '.$classeAdd;
 		}
 		$classe 	= 'class="'.$classe.'"';
 		
-		$tamanho 	= isset($param['tamanho']) && !empty($param['tamanho'])	? 'size="'.$param['tamanho'].'"' : "";
+		$tamanho 	= isset($param['tamanho']) && !empty($param['tamanho'])	? 'size="'.$param['tamanho'].'" maxlength="' . $param['tamanho'] . '" ' : "";
 		
 		$maxTamanho = isset($param['maxtamanho']) && $param['maxtamanho'] 	? 'maxLength="'.$param['maxtamanho'].'"' : "";
 		$onkeypress	= isset($param['onkeypress']) && $param['onkeypress'] 	? 'onKeyPress="'.$param['onkeypress'].'"' : "";
@@ -351,7 +342,7 @@ class formbase01{
 				case 'V':
 					//$valor = round($valor,2);
 					$valor = empty($valor) ? 0 : $valor;
-					$valor = number_format($valor, 2);
+					$valor = formataReais($valor, 2);
 					//$maskmoney = true;
 					$maskmoney = (isset($param['negativo']) && $param['negativo'] === true) ? true : false;
 					$mascara = '###.###.###.###.##0,00';
@@ -362,11 +353,21 @@ class formbase01{
 				case 'V4':
 					//$valor = round($valor,4);
 					$valor = empty($valor) ? 0 : $valor;
-					$valor = number_format($valor, 4);
+					$valor = formataReais($valor, 4);
 					$maskmoney = (isset($param['negativo']) && $param['negativo'] === true) ? true : false;
 					$decimais = 4;
 					$estilo = empty($estilo) ? "text-align: right" : '';
 					break;
+				case 'P': 
+				    //Máscara porcentagem
+				    $valor = empty($valor) ? 0 : $valor;
+				    $valor = formataReais($valor, 2);
+				    $maskmoney = (isset($param['negativo']) && $param['negativo'] === true) ? true : false;
+				    $mascara = '###,00%';
+				    $decimais = 2;
+				    $reverse = true;
+				    $estilo = empty($estilo) ? "text-align: right" : '';
+				    break;
 				case 'hora':
 				case 'H':
 					$mascara = '99:99';
@@ -411,6 +412,7 @@ class formbase01{
 	}
 	
 	static function formEditor($param, $enable = true){
+		addPortalJS('plugin', 'ckeditor/ckeditor.js', 'I', 'ckeditor');
 		$param['id'] = verificaParametro($param, 'id', ajustaID($param['nome']));
 		$ret = formbase01::formTextArea($param, $enable);
 		
@@ -474,7 +476,7 @@ class formbase01{
 		$nome		= verificaParametro($param, 'nome', '');
 		$valor		= verificaParametro($param, 'valor', '');
 		//Para não expor a senha o valor fica 15 *
-		$valor		= '';
+		//$valor		= '';
 		$id			= verificaParametro($param, 'id', ajustaID($nome));
 		$etiqueta 	= verificaParametro($param, 'etiqueta', '');
 		$help 		= verificaParametro($param, 'help');
@@ -514,6 +516,9 @@ class formbase01{
 		
 		$nome		= verificaParametro($param, 'nome', '');
 		$valor		= verificaParametro($param, 'valor', '');
+		if(strpos($valor, '/') === false){
+			$valor = datas::dataS2D($valor);
+		}
 		$id			= verificaParametro($param, 'id', ajustaID($nome));
 		$etiqueta 	= verificaParametro($param, 'etiqueta', '');
 		$estilo	= verificaParametro($param, 'estilo', 'width: 100px;');
@@ -597,7 +602,8 @@ class formbase01{
 					$param['checked']	= $combo['checked'] ?? false;
 					$param['inline']	= true;
 					$param['classeadd'] = $combo['classeadd'] ?? '';
-					$cb = '&nbsp;&nbsp;&nbsp;'.self::formCheck($param);
+					$param['ativo']     = $combo['ativo'] ?? true;
+					$cb = '&nbsp;&nbsp;&nbsp;'.self::formCheck($param, $param['ativo']);
 //cho $cb."<br>\n";
 					$temp .= addDivColuna($larguras[$coluna], $cb);
 				}else{
@@ -694,10 +700,10 @@ class formbase01{
 		$sendFooter = $param['sendFooter'] ?? false;
 		
 		if($sendFooter){
-			$param = [];
-			$param['URLcancelar'] = $param['URLcancelar'] ?? getLink().'index';
-			$param['IDform'] = $id;
-			formbase01::formSendFooter($param);
+			$param_footer = [];
+			$param_footer['URLcancelar'] = $param['URLcancelar'] ?? getLink().'index';
+			$param_footer['IDform'] = $id;
+			formbase01::formSendFooter($param_footer);
 		}
 		
 		return $ret;
@@ -855,11 +861,13 @@ class formbase01{
 		$etiqueta 	= verificaParametro($param, 'etiqueta');
 		$texto		= verificaParametro($param, 'texto','Selecionar Arquivo');
 		$help 		= verificaParametro($param, 'help');
+		$style		= $param['estilo'] ?? '';
 		
 		$multiSel = $multi ? ' multiple ': '';
+		$style = !empty($style) ? 'style="'.$style.'"' : 'style="opacity:1"'; // Aconteceu de o form não aparecer
 		
 		//$ret = '<input type="file" class="custom-file-input" id="'.$id.'" '.$multiSel.' value="'.$texto.'" name="'.$nome.'">'.$nl;
-		$ret = '<input type="file" class="custom-file-input" id="'.$id.'" '.$multiSel.' name="'.$nome.'">'.$nl;
+		$ret = '<input type="file" class="custom-file-input" id="'.$id.'" '.$multiSel.' name="'.$nome.'"  '.$style.'>'.$nl;
 		$ret .= '<label class="custom-file-label" for="'.$id.'">'.$texto.'</label>';
 		if(!empty($etiqueta)){
 			$ret = self::formLinha($ret,$etiqueta,$id, $help);
@@ -1042,6 +1050,21 @@ class formbase01{
 		
 		$tabs 	= $param['tabs'] ?? [];
 		$id		= $param['id'] ?? '';
+		$tab_ativa  = $param['ativo'] ?? '';
+		$tabs_desativadas = $param['desativado'] ?? [];
+		
+		if(empty($tab_ativa) || !isset($tabs[$tab_ativa]) || in_array($tab_ativa, $tabs_desativadas)){
+		    //se uma tab ativa não foi informada, pega a primeira tab que não faz parte das tabs desativadas
+		    $chaves = array_keys($tabs);
+		    do{
+		        $tab_ativa = array_shift($chaves);
+		    }
+		    while(!in_array($tab_ativa, $tabs_desativadas) && count($tabs_desativadas) > 0);
+		}
+		if(empty($tab_ativa)){
+		    //caso nenhuma tab válida tenha sido encontrada, pega a primeira tab
+		    $tab_ativa = array_key_first($tabs);
+		}
 		
 		if(empty($id) || count($tabs) == 0){
 			addPortalMensagem('É necessário informar um ID (incormado: '.$id.') e ao menos um conteudo (quant tabs:'.count($tabs).')');
@@ -1050,23 +1073,21 @@ class formbase01{
 		
 		$id_tabs = [];
 		$ret .= '<ul class="nav nav-tabs" id="custom-content-below-tab" role="tablist">'.$nl;
-		$primeiro = true;
 		foreach ($tabs as $i => $tab){
-			$ativo = $primeiro ? 'active' : '';
-			$selecionado = $primeiro ? 'true' : 'false';
-			$primeiro = false;
-			$id_tabs[$i] = 'custom-content-'.$i;
+		    $ativo = $i === $tab_ativa ? 'active' : '';
+		    $selecionado = $i === $tab_ativa ? 'true' : 'false';
+		    //$id_tabs[$i] = 'custom-content-'.$i;
+		    $id_tabs[$i] =  formbase01::gerarIdTab($i);
+		    $desativado = in_array($i, $tabs_desativadas) ? 'disabled' : '';
 			$ret .= '	<li class="nav-item">'.$nl;
-			$ret .= '		<a class="nav-link '.$ativo.'" id="'.$id_tabs[$i].'-tab" data-toggle="pill" href="#'.$id_tabs[$i].'" role="tab" aria-controls="'.$id_tabs[$i].'" aria-selected="'.$selecionado.'">'.$tab['titulo'].'</a>'.$nl;
+			$ret .= '		<a class="nav-link ' . $ativo. ' ' . $desativado . '" id="'.$id_tabs[$i].'-tab" data-toggle="pill" href="#'.$id_tabs[$i].'" role="tab" aria-controls="'.$id_tabs[$i].'" aria-selected="'.$selecionado.'">'.$tab['titulo'].'</a>'.$nl;
 			$ret .= '	</li>'.$nl;
 		}
 		$ret .= '</ul>'.$nl;
 		
 		$ret .= '<div class="tab-content" id="'.$id.'-tabContent">'.$nl;
-		$primeiro = true;
 		foreach ($tabs as $i => $tab){
-			$ativo = $primeiro ? 'show active' : '';
-			$primeiro = false;
+		    $ativo = $i === $tab_ativa ? 'show active' : '';
 			$ret .= '	<div class="tab-pane fade '.$ativo.'" id="'.$id_tabs[$i].'" role="tabpanel" aria-labelledby="'.$id_tabs[$i].'-tab">'.$nl;
 			$ret .= '		<br>'.$tab['conteudo'].$nl;
 			$ret .= '	</div>'.$nl;
@@ -1074,6 +1095,10 @@ class formbase01{
 		$ret .= '</div>'.$nl;
 		
 		return $ret;
+	}
+	
+	static function gerarIdTab($id){
+	    return 'custom-content-'.$id;
 	}
 
 	
@@ -1164,6 +1189,13 @@ class formbase01{
 		if($procura){
 			$classes[] = 'selectpicker';
 			$complementoProcura = 'liveSearchNormalize="true" data-show-subtext="true" data-live-search="true"';
+			//links para o bootstrap
+			addPortalJS('plugin' , 'bootstrap-select/js/bootstrap-select.min.js', 'I', 'bootstrap-select');
+			addPortalCSS('plugin', 'bootstrap-select/css/bootstrap-select.min.css', 'I', 'bootstrap-select');
+	/*		
+			addPortalJS('link', 'https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/js/bootstrap-select.min.js');
+		addPortalCSS('link', 'https://cdn.jsdelivr.net/npm/bootstrap-select@1.14.0-beta3/dist/css/bootstrap-select.min.css');
+		*/
 		}
 		
 		$classe 	= 'class="'.implode(' ', $classes).'"';
@@ -1189,7 +1221,16 @@ class formbase01{
 		$ret = '<select title="'.$title.'" name="'.$nome.'"  id="'.$id.'" '.$classe.' '.$style.' '.$onkeypress.$onchange.$multiple.$size.' '.$obrigatorio.' '.$readonly.' '.$complementoProcura.'>'.$nl;
 		if(is_array($lista) && count($lista) > 0){
 			foreach ($lista as $ind => $campo){
-				$ret .= '<option value="'.$campo[0].'"';
+			    $opcao_desabilitada = $campo[2] ?? false;
+			    if($opcao_desabilitada){
+			        $ret .= '<option disabled value="'.$campo[0].'"';
+			    }
+			    else{
+			        $ret .= '<option value="'.$campo[0].'"';
+			    }
+				if($procura){
+				    $ret .= ' data-tokens = ""';
+				}
 				if(is_array($valor)){
 					if (in_array(trim($campo[0]),$valor))
 						$ret .= ' selected';
@@ -1204,6 +1245,106 @@ class formbase01{
 		if(!empty($etiqueta)){
 			$ret = self::formLinha($ret, $etiqueta, $id, $help);
 		}
+		
+		//log::gravaLog('formbase01_formselect', $ret);
 		return $ret;
+	}
+	
+	static function formBotaoDropdown($param){
+        global $nl;
+	    $ret = '';
+	    
+	    $titulo  = $param['titulo'] ?? 'Selecione';
+	    $opcoes  = $param['opcoes'] ?? [];
+	    $cor 	 = self::getCorBotao($param['cor'] ?? '');
+	    $tamanho = $param['tamanho']	?? 'padrao';
+	    
+	    $classe = array('btn', $cor, 'dropdown-toggle');
+	    switch ($tamanho) {
+	        case 'grande':
+	            $classe['tam'] = 'btn-lg';
+	            break;
+	        case 'pequeno':
+	            $classe['tam'] = 'btn-sm';
+	            break;
+	        case 'padrao':
+	            $classe['tam'] = '';
+	            break;
+	        default:
+	            $classe['tam'] = 'btn-xs';
+	            break;
+	    }
+	    
+	    
+	    
+	    $quantID = getAppVar('formBotaoDropdown') === false ? 1 : getAppVar('formBotaoDropdown');
+	    $id = 'tabelaTWS'.$quantID;
+	    putAppVar('formBotaoDropdown', $quantID + 1);
+	    
+	    $ret .= '<div class="dropdown">'.$nl;
+	    $ret .= '	<button class="' . implode(' ', $classe) . '" type="button" id="'.$id.'" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">'.$titulo.'</button>'.$nl;
+	    $ret .= '	<div class="dropdown-menu" aria-labelledby="'.$id.'">'.$nl;
+	    if(is_array($opcoes) && count($opcoes)){
+	        foreach ($opcoes as $opcao){
+	            if(isset($opcao['separador']) && $opcao['separador'] == true){
+	                $ret .= '		<div class="dropdown-divider"></div>'.$nl;
+	            }
+	            else{
+	                $class = 'class="dropdown-item"';
+	                $href = isset($opcao['url']) && !empty($opcao['url']) ? (' href="' . $opcao['url'] . '" ') : '';
+	                $onclick = isset($opcao['onclick']) && !empty($opcao['onclick']) ? (' onclick="' . $opcao['onclick'] . '" ') : '';
+	                if(isset($opcao['habilitado']) && $opcao['habilitado'] === false){
+	                    $class = 'class="dropdown-item disabled"';
+	                }
+	                $ret .= '		<a '.$class.' style="cursor: pointer;"'.$href.$onclick.'>'.$opcao['texto'].'</a>'.$nl;
+	            }
+	        }
+	    }
+	    $ret .= '	</div>'.$nl;
+	    $ret .= '</div>'.$nl;
+	    
+	    return $ret;
+	}
+	
+	//---------------------------------------------------------- UTEIS ------------------------------------
+	
+	static function getCorBotao($cor){
+	    $ret = '';
+	    
+	    switch ($cor) {
+	        case 'primary':
+	            $ret = 'btn-primary';
+	            break;
+	        case 'secondary':
+	            $ret = 'btn-secondary';
+	            break;
+	        case 'success':
+	            $ret = 'btn-success';
+	            break;
+	        case 'info':
+	            $ret = 'btn-info';
+	            break;
+	        case 'warning':
+	            $ret = 'btn-warning';
+	            break;
+	        case 'danger':
+	            $ret = 'btn-danger';
+	            break;
+	        case 'light':
+	            $ret = 'btn-light';
+	            break;
+	        case 'dark':
+	            $ret = 'btn-dark';
+	            break;
+	        case 'link':
+	            $ret = 'btn-link';
+	            break;
+	        default:
+	            //$cor = COR_PADRAO_BOTOES;
+	            $ret = 'btn-'.COR_PADRAO_BOTOES;
+	            break;
+	    }
+	    
+	    return $ret;
 	}
 }

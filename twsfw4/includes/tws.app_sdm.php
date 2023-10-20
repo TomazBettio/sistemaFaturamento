@@ -21,7 +21,10 @@ class app_sdm{
 
 		$clienteFora = $param['clientesFora'] ?? true;
 		if($clienteFora !== false){
-			$where .= " AND cliente_agenda NOT IN (".getParametroSistema('sdm_clientes_sem_os').") ";
+			$listaClientesFora = getParametroSistema('sdm_clientes_sem_os');
+			if(!empty($listaClientesFora)){
+				$where .= " AND cliente_agenda NOT IN (".$listaClientesFora.") ";
+			}
 		}
 		
 		if(isset($param['usuario'])){
@@ -106,7 +109,7 @@ class app_sdm{
 		if(!empty($recurso)){
 			$where = " AND recurso = '$recurso'";
 		}
-		$sql = "SELECT * FROM cad_recursos WHERE agenda = 'S' AND ativo = 'S' AND tipo = 'A' $where ORDER BY apelido";
+		$sql = "SELECT * FROM sdm_recursos WHERE agenda = 'S' AND ativo = 'S' AND tipo = 'A' $where ORDER BY apelido";
 		//echo "$sql <br>\n";
 		$rows = query($sql);
 		
@@ -135,7 +138,7 @@ class app_sdm{
 		if($ativos){
 			$where = " AND ativo = 'S'";
 		}
-		$sql = "SELECT nome, apelido, usuario FROM cad_recursos WHERE agenda = 'S' AND ativo = 'S' AND tipo = 'A' $where ORDER BY apelido";
+		$sql = "SELECT nome, apelido, usuario FROM sdm_recursos WHERE agenda = 'S' AND ativo = 'S' AND tipo = 'A' $where ORDER BY apelido";
 //echo "$sql <br>\n";
 		$rows = query($sql);
 		
@@ -155,7 +158,7 @@ class app_sdm{
 	public static function getClienteCampo($cliente, $campo = 'nreduz'){
 		$ret = '';
 		
-		$sql = "SELECT $campo FROM cad_clientes WHERE cod = '$cliente'";
+		$sql = "SELECT $campo FROM cad_organizacoes WHERE cod = '$cliente'";
 //echo "$sql <br>\n";
 		$rows = query($sql);
 		
@@ -172,5 +175,86 @@ class app_sdm{
 	//-------------------------------------------------------------------------------------- VO  -------------------------------------
 	
 	//-------------------------------------------------------------------------------------- UTEIS -----------------------------------
+	public static function enviaEmailAgendaRecurso($agenda, $exclusao = false){
+		$apelido = getUsuario('apelido', $agenda['recurso']);
+		$agendador = getUsuario('apelido', $agenda['marcado_por']);
+		
+		$param = [];
+		$param['programa'] = 'envio_agenda_email';
+		$param['imprimeCabecalho'] = false;
+		$param['auto'] = true;
+		$param['mensagem_inicio_email'] = $exclusao ? app_sdm::getMensagemInicioEmailExclusaoAgenda($apelido) : app_sdm::getMensagemInicioEmailAgenda($apelido);
+		$email = new relatorio01($param);
+		
+		$email->addColuna(['campo' => 'etiqueta', 'etiqueta' => ''	, 'tipo' => 'T', 'width' => 150, 'posicao' => 'E']);
+		$email->addColuna(['campo' => 'valor' 	, 'etiqueta' => ''	, 'tipo' => 'T', 'width' => 400, 'posicao' => 'E']);
+		
+		$dados = [];
+		$dados[] = ['etiqueta' => 'Data'		, 'valor' => datas::dataS2D($agenda['data'])];
+		$dados[] = ['etiqueta' => 'Turno'		, 'valor' => getTabelaDesc('000022',$agenda['turno'])];
+		$dados[] = ['etiqueta' => 'Local'		, 'valor' => getTabelaDesc('000023',$agenda['local'])];
+		$dados[] = ['etiqueta' => 'Cliente'		, 'valor' => $agenda['cliente_agenda'].' - '.funcoes_cad::getClienteCampo($agenda['cliente_agenda'])];
+		$dados[] = ['etiqueta' => 'Contato'		, 'valor' => $agenda['contato']];
+		$dados[] = ['etiqueta' => 'Tipo'		, 'valor' => getTabelaDesc('000024',$agenda['tipo'])];
+		$dados[] = ['etiqueta' => 'Tarefa'		, 'valor' => nl2br($agenda['tarefa'])];
+		//$dados[] = ['etiqueta' => 'Status'		, 'valor' => $agenda['status']];
+		//$dados[] = ['etiqueta' => 'OS'			, 'valor' => $agenda['os']];
+		//$dados[] = ['etiqueta' => 'Ticket'		, 'valor' => $agenda['ticket']];
+		$dados[] = ['etiqueta' => 'Projeto'		, 'valor' => app_sdm::getProjetoCampo($agenda['projeto'])];
+		$dados[] = ['etiqueta' => 'Agendado por', 'valor' => $agendador];
+		
+		$para = $agenda['recurso'];
+		
+		
+		$email->setDados($dados);
+		
+		$email->enviaEmail($para);
+	}
 	
+	public static function enviaEmailExclusaoAgendaRecurso($dados){
+		$sql = "SELECT * FROM sdm_agenda
+				WHERE recurso = '".$dados[0]."'
+					AND data = '".$dados[1]."'
+					AND cliente_agenda = '".$dados[3]."'
+					AND turno = '".$dados[2]."'
+					AND status = 'E'
+				ORDER BY del_em DESC
+				LIMIT 1";
+		$rows = query($sql);
+		
+		if(isset($rows[0]['id'])){
+			app_sdm::enviaEmailAgendaRecurso($rows[0], true);
+		}
+	}
+	
+	public static function getMensagemInicioEmailAgenda($apelido){
+		$ret = '';
+		
+		$ret .= "Prezado $apelido <br>\n<br>\n";
+		$ret .= "A agenda abaixo foi marcada: <br>\n<br>\n";
+		
+		return $ret;
+	}
+	
+	public static function getMensagemInicioEmailExclusaoAgenda($apelido){
+		$ret = '';
+		
+		$ret .= "Prezado $apelido <br>\n<br>\n";
+		$ret .= "A agenda abaixo foi <b><font color='#FF0000'>EXCLUÍDA</font></b>: <br>\n<br>\n";
+		
+		return $ret;
+	}
+	
+	public static function getProjetoCampo($projeto, $campo = 'titulo'){
+		$ret = '';
+		if(strval($projeto) > 0){
+			$sql = "select $campo from sdm_projetos where id = $projeto";
+			$rows = query($sql);
+			if(isset($rows[0][$campo])){
+				$ret = $rows[0][$campo];
+			}
+		}
+		
+		return $ret;
+	}
 }

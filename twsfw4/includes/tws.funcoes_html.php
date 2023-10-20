@@ -20,6 +20,15 @@ function addPortalCSS($pasta, $arquivo, $posicao = 'I', $indice = ''){
 }
 
 /**
+ * Adiciona uma linha  CSS no   no início ou final da página
+ */
+function addStyleLinhas($string, $posicao = 'I'){
+	global $pagina;
+	$pagina->addStyleLinha($string, $posicao);
+}
+
+
+/**
  * Adiciona um JS  no início ou final da página
  */
 function addPortalJS($pasta, $arquivo, $posicao = 'I', $indice = ''){
@@ -50,15 +59,14 @@ function addPortalJquery($linha, $posicao = 'I'){
 function addPortalMensagem($mensagem,$cor = 'success'){
     
 	if(!empty($mensagem)){
-	    /*
-		addPortalCSS('plugin', 'toastr/toastr.min.css', 'I', 'toastr');
-		addPortalJS('plugin', 'toastr/toastr.min.js','I', 'toastr');
-		$cor = !empty($cor) ? $cor : 'success';
-		addPortalJquery('toastr.'.$cor.'("'.$mensagem.'");');
-		*/
+		
+		//Compatibilização
+		$cor = $cor ?? 'success';
+		$cor = $cor == 'erro' ? 'error' : $cor;
+		
 	    $fila_mensagens = getAppVar('fila_mensagens');
 	    if($fila_mensagens === null){
-	        $fila_mensagens = array();
+	        $fila_mensagens = [];
 	    }
 	    $mensagem_nova = array(
 	        'mensagem' => $mensagem,
@@ -83,23 +91,23 @@ function addPortalMensagem($mensagem,$cor = 'success'){
  * @param array $parametros
  * @return string
  */
-function addCard($parametros){
+function addCard($param){
 	global $nl;
 	$ret = '';
 	$styleCard = [];
 	
-	$outline 	= $parametros['outline'] ?? CARD_OUTLINE;
-	$chat 		= $parametros['chat'] ?? false;
+	$outline 	= $param['outline'] ?? CARD_OUTLINE;
+	$chat 		= $param['chat'] ?? false;
 	
-	$cor 		= $parametros['cor'] ?? 'primary';
+	$cor 		= $param['cor'] ?? 'primary';
 	$possiveis = ['','primary','secondary','success','info','warning','danger','default'];
 	if(array_search($cor,$possiveis) !== false){
 		$styleCard[]= 'card-'.$cor;
 	}
 	
-	$titulo 	= $parametros['titulo'] ?? '';
-	$conteudo 	= $parametros['conteudo'] ?? '';
-	$footer 	= $parametros['footer'] ?? '';
+	$titulo 	= $param['titulo'] ?? '';
+	$conteudo 	= $param['conteudo'] ?? '';
+	$footer 	= $param['footer'] ?? '';
 	
 	//Determina se é um card de chat
 	if($chat){
@@ -112,27 +120,28 @@ function addCard($parametros){
 	
 	//Botoes
 	$botoesTool = [];
-	if(isset($parametros['collapse']) && $parametros['collapse']){
+	if(isset($param['collapse']) && $param['collapse']){
 		$botoesTool[] = ['collapse' => 'fa fa-minus'];
 	}
-	if(isset($parametros['remove']) && $parametros['remove']){
+	if(isset($param['remove']) && $param['remove']){
 		$botoesTool[] = ['remove' => 'fa fa-times'];
 	}
 	
 	//Botoes título
 	$botoesTitulo = [];
-	if(isset($parametros['botoesTitulo']) && is_array($parametros['botoesTitulo'])){
-		$botoesTitulo = $parametros['botoesTitulo'];
+	if(isset($param['botoesTitulo']) && is_array($param['botoesTitulo'])){
+		$botoesTitulo = $param['botoesTitulo'];
 	}
+	$botoesTituloDropDown = $param['botoesTituloDropDown'] ?? false;
 	
 	//Botão cancelar (voltar)
-	if(isset($parametros['botaoCancelar']) && $parametros['botaoCancelar'] === true){
+	if(isset($param['botaoCancelar']) && $param['botaoCancelar'] === true){
 		$temp = [];
-		$temp_link 			= $parametros['botaoCancelarLink'] ?? getLink().'index';
+		$temp_link 			= $param['botaoCancelarLink'] ?? getLink().'index';
 		$temp['onclick'] 	= "setLocation('".$temp_link."')";
 		//$temp['tamanho'] 	= 'pequeno';
-		$temp['cor'] 		= $parametros['botaoCancelarCor'] ?? COR_PADRAO_BOTAO_CANCELAR;
-		$temp['texto'] 		= $parametros['botaoCancelarTexto'] ?? 'Cancelar';
+		$temp['cor'] 		= $param['botaoCancelarCor'] ?? COR_PADRAO_BOTAO_CANCELAR;
+		$temp['texto'] 		= $param['botaoCancelarTexto'] ?? 'Cancelar';
 		
 		$botoesTitulo[] = $temp;
 	}
@@ -140,25 +149,51 @@ function addCard($parametros){
 	$ret .= '<div class="card '.implode(' ', $styleCard).'">'.$nl;
 	
 	$header_class = ''; 
-	if(isset($parametros['header-class'])){
-		$header_class = is_array($parametros['header-class']) ? implode(' ', $parametros['header-class']) : $parametros['header-class'];
+	if(isset($param['header-class'])){
+		$header_class = is_array($param['header-class']) ? implode(' ', $param['header-class']) : $param['header-class'];
 	}
 	$header_style = '';
-	if(isset($parametros['header-style'])){
-		$header_class = is_array($parametros['header-style']) ? implode('; ', $parametros['header-style']) : $parametros['header-style'];
+	if(isset($param['header-style'])){
+		$header_class = is_array($param['header-style']) ? implode('; ', $param['header-style']) : $param['header-style'];
 		$header_style = 'style="'.$header_class.'"';
 	}
 	$ret .= '	<div class="card-header '.$header_class.'" '.$header_style.'>'.$nl;
-	$icone = isset($parametros['icone']) ? addIcone($parametros['icone']) : '';
+	$icone = isset($param['icone']) ? addIcone($param['icone']) : '';
 	$ret .= '		<h3 class="card-title">'.$icone.$titulo.'</h3>'.$nl;
 	if(count($botoesTool) > 0 || count($botoesTitulo) > 0){
 		$ret .= '		<div class="card-tools">'.$nl;
 		//$ret .= '			<span title="3 New Messages" class="badge bg-success">3</span>'.$nl;
 		
 		if(count($botoesTitulo) > 0){
-			foreach ($botoesTitulo as $botao){
-				$ret .= '&nbsp;'.formbase01::formBotao($botao);
-			}
+		    if($botoesTituloDropDown){
+		        $param_dropdown = [
+		            'titulo' => 'Ações',
+		            'opcoes' => [],
+		            'tamanho' => 'pequeno',
+		        ];
+		        foreach ($botoesTitulo as $botao){
+		            $paramBotaoAtual = array();
+		            $paramBotaoAtual['texto'] = $botao['texto'] ?? '';
+		            $paramBotaoAtual['onclick'] = $botao['onclick'] ?? '';
+		            $paramBotaoAtual['url'] = $botao['url'] ?? '';
+		            $paramBotaoAtual['separador'] = $botao['separador'] ?? false;
+		            /*
+		            //por alguma morivo da erro
+		            $paramBotaoAtual = array(
+		                'texto' => $botao['texto'],
+		                'onclick' => $botao['onclick'] ?? '',
+		                'url' => $botao['url'] ?? '',o
+		            );
+		            */
+		            $param_dropdown['opcoes'][] = $paramBotaoAtual;
+		        }
+		        $ret .= formbase01::formBotaoDropdown($param_dropdown);
+		    }
+		    else{
+		        foreach ($botoesTitulo as $botao){
+		            $ret .= '&nbsp;'.formbase01::formBotao($botao);
+		        }
+		    }
 		}
 		
 		
@@ -178,20 +213,23 @@ function addCard($parametros){
 	}
 	$ret .= '	</div>'.$nl;
 
-	$ret .= '	<div class="card-body">'.$nl;
-	$ret .= '		'.$conteudo;	
-	$ret .= '	</div>'.$nl;
+	if(!empty($conteudo)){
+	    $ret .= '	<div class="card-body">'.$nl;
+	    $ret .= '		'.$conteudo;
+	    $ret .= '	</div>'.$nl;
+	}
 	
 	if(!empty($footer)){
 		$ret .= '	<div class="card-footer">'.$nl;
-		$ret .= '		<form action="#" method="post">'.$nl;
-		$ret .= '			<div class="input-group">'.$nl;
-		$ret .= '				<input type="text" name="message" placeholder="Type Message ..." class="form-control">'.$nl;
-		$ret .= '				<span class="input-group-append">'.$nl;
-		$ret .= '					<button type="submit" class="btn btn-success">Send</button>'.$nl;
-		$ret .= '				</span>'.$nl;
-		$ret .= '			</div>'.$nl;
-		$ret .= '		</form>'.$nl;
+		$ret .= '		'.$footer.$nl;
+		//$ret .= '		<form action="#" method="post">'.$nl;
+		//$ret .= '			<div class="input-group">'.$nl;
+		//$ret .= '				<input type="text" name="message" placeholder="Type Message ..." class="form-control">'.$nl;
+		//$ret .= '				<span class="input-group-append">'.$nl;
+		//$ret .= '					<button type="submit" class="btn btn-success">Send</button>'.$nl;
+		//$ret .= '				</span>'.$nl;
+		//$ret .= '			</div>'.$nl;
+		//$ret .= '		</form>'.$nl;
 		$ret .= '	</div>'.$nl;
 	}
 	$ret .= '	</div>'.$nl;
@@ -204,6 +242,20 @@ function ajustaCaractHTML($texto){
 	$por = array('&aacute;','&Aacute;','&atilde;','&Atilde;','&acirc;' ,'&Acirc;' ,'agrave;' ,'&Agrave;','&eacute;','&Eacute;','&ecirc;' ,'&Ecirc;' ,'&iacute;','&Iacute;','&oacute;','&Oacute;','&otilde;','&Otilde;','&ocirc;' ,'&Ocirc;' ,'&uacute;','&Uacute;','&ccedil;','&Ccedil;');
 	$ret = str_replace($de, $por, $texto);
 	return  $ret;
+}
+
+function ajustaCaractHTMLReverso($texto){
+    $de  = array('&aacute;','&Aacute;','&atilde;','&Atilde;','&acirc;' ,'&Acirc;' ,'agrave;' ,'&Agrave;','&eacute;','&Eacute;','&ecirc;' ,'&Ecirc;' ,'&iacute;','&Iacute;','&oacute;','&Oacute;','&otilde;','&Otilde;','&ocirc;' ,'&Ocirc;' ,'&uacute;','&Uacute;','&ccedil;','&Ccedil;');
+    $por = array('á','Á','ã','Ã','â','Â','à','À','é','É','ê','Ê','í','Í','ó','Ó','õ','Õ','ô','Ô','ú','Ú','ç','Ç');
+    $ret = str_replace($de, $por, $texto);
+    return  $ret;
+}
+
+function tirarAcentos($texto){
+    $de =  array('á', 'à', 'â', 'Á', 'À', 'Â', 'è', 'é', 'ê', 'É', 'È', 'Ê', 'í', 'ì', 'î', 'Í', 'Ì', 'Î', 'ó', 'ò', 'ô', 'Ó', 'Ò', 'Ô', 'ú', 'ù', 'û', 'Ú', 'Ù', 'Û', 'ã', 'Ã', 'õ', 'Õ', 'ç', 'Ç');
+    $por = array('a', 'a', 'a', 'A', 'A', 'A', 'e', 'e', 'e', 'E', 'E', 'E', 'i', 'i', 'i', 'I', 'I', 'I', 'o', 'o', 'o', 'O', 'O', 'O', 'u', 'u', 'u', 'U', 'U', 'U', 'a', 'A', 'o', 'O', 'c', 'C');
+    $ret = str_replace($de, $por, $texto);
+    return  $ret;
 }
 
 function addRow($texto){
@@ -340,11 +392,18 @@ function addTimeline($param){
 				foreach($pai['filho'] as $filho){
 					$filho['icone'] 	= verificaParametro($filho, 'icone','fa-comments');
 					$filho['iconeCor'] 	= verificaParametro($filho, 'iconeCor','bg-aqua');
+					$filho['imagem']    = verificaParametro($filho, 'imagem','');
 					$filho['conteudo'] 	= verificaParametro($filho, 'conteudo','');
 					$filho['botoes'] 	= verificaParametro($filho, 'botoes',[]);
 					$filho['footer'] 	= verificaParametro($filho, 'footer','');
 					$ret .= '		<div>'.$nl;
-					$ret .= addIcone($filho['icone'], $filho['iconeCor']);
+					if(!empty($filho['imagem'])){
+					    $ret .= '<i class"fa" style="left: 18px; line-height: 30px; position: absolute; text-align: center;top: 0;"><img src="' . $filho['imagem'] . '" style="width:30px;height:30px;display:inline;"></i>';
+					    // style="width:30px;height:30px;display: inline-block;"
+					}
+					else{
+					    $ret .= addIcone($filho['icone'], $filho['iconeCor']);
+					}
 
 					$ret .= '			<div class="timeline-item">'.$nl;
 					if(isset($filho['hora']) && !empty($filho['hora'])){
@@ -352,12 +411,18 @@ function addTimeline($param){
 					}
 					$titulo = isset($filho['titulo']) ? $filho['titulo'] : '';
 					$subTit = isset($filho['titSub']) ? $filho['titSub'] : '';
-					if(!empty($titulo)){
+					if(!empty($titulo) || !empty($subTit)){
 						$link = '#';
 						if(isset($filho['titLink']) && !empty($filho['titLink'])){
 							$link = $filho['titLink'];
 						}
-						$titulo = '<a href="'.$link.'">'.$titulo.'</a>'.$subTit;
+						if(!empty($titulo)){
+						    $titulo = '<a href="'.$link.'">'.$titulo.'</a>';
+						}
+						if(!empty($titulo) && !empty($subTit)){
+						    $titulo .= ' ';
+						}
+						$titulo .= $subTit;
 						$ret .= '				<h3 class="timeline-header">'.$titulo.'</h3>'.$nl;
 					}
 					//------------------------------------------------------------------------------- Corpo
@@ -505,4 +570,50 @@ function boxPequeno($param){
 	$ret .= '</div>'.$nl;
 	
 	return $ret;
+}
+
+/**
+ * Gera JS para ficar conectando a cada $tempo segundos para não inativar a sessao
+ *
+ * @param int $tempo tempo em segundos que vai conectar novamente
+ */
+function mantemConectado($tempo){
+	$tempo = $tempo * 1000;
+	
+	$link = getLinkAjax('atualiza', true);
+	$ret = "function manter_conectado(){
+				$.getJSON('$link', function (dados){ });
+	    }";
+		
+	addPortaljavaScript($ret);
+	
+	addPortalJquery("setInterval(manter_conectado, $tempo);",'F');
+}
+
+
+/**
+ * 
+ * @param array $param
+ * 				$param['numeral'] 	= numero ou texto a ser apresentado dentro do badge
+ * 				$param['texto']	  	= Texto a ser apresentado quando mouse over
+ * 				$param['cor'] 		= ['primary','secondary','success','danger','warning','info','light','dark']
+ * 				$param['cor'] 		= Se true faz o badge arredondado
+ * @return string TAG
+ */
+
+function badge($param){
+	$numeral 	= $param['numeral'] ?? '';
+	$pill	 	= isset($param['pill']) && $param['pill'] === true ? 'badge-pill' : '';
+	$texto 		= $param['texto'] ?? '';
+	$cor		= $param['cor'] ?? 'primary';
+	$cores 		= ['primary','secondary','success','danger','warning','info','light','dark'];
+	$cor		= in_array($cor, $cores) ? 'badge-'.$cor : 'badge-primary';
+	
+	if($param['concatenarNumeral'] ?? true){
+		$texto = $numeral.' '.$texto;
+	}
+	$ret = "<span title='$texto' class='badge $pill $cor'>$numeral</span>";
+	
+	return $ret;
+	
 }

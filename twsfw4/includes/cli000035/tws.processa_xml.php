@@ -18,8 +18,11 @@ error_reporting(E_ALL);
 
 class processa_xml
 {
-	//Path
+	//Path dos arquivos XMLs
 	private $_path;
+	
+	//Path raiz do cliente-contrato
+	private $_path_raiz;
 
 	//Dados
 	private $_dados = [];
@@ -33,17 +36,57 @@ class processa_xml
 	//cnpj
 	private $_cnpj;
 
+	// ID cliente
+	private $_id;
 
-
-	public function __construct($cnpj, $contrato, $trace = false)
+	//Arquivo fe log do contrato
+	private $_logContrato;
+	
+	//Contrato
+	private $_contrato;
+	
+	//Indica se está rodando por schedule
+	private $_schedule;
+	
+	//Dados do contrato
+	private $_dadosContrato;
+	
+	//Data do incio da apuracao
+	private $_periodo_ini;
+	
+	//Data do fim da apuracao
+	private $_periodo_fim;
+	
+	//Notas já processadas
+	private $_notas_processadas = [];
+	
+	public function __construct($cnpj, $contrato, $id, $arquivos_importados, $dados_contrato = [], $schedule = false, $trace = false)
 	{
 		global $config;
-		$this->_path = $config['pathUpdMonofasico'] . $cnpj . '_' . $contrato . DIRECTORY_SEPARATOR;
+		
+		$this->_dadosContrato = $dados_contrato;
+		$this->_periodo_ini = $dados_contrato['apura_ini'] ?? '';
+		$this->_periodo_fim = $dados_contrato['apura_fim'] ?? '';
+		
+		if($arquivos_importados == 'N'){
+			$this->_path = $config['pathUpdMonofasico'] . $cnpj . '_'.$contrato.DIRECTORY_SEPARATOR.'recebidos'.DIRECTORY_SEPARATOR;
+		}else{
+			$this->_path = $config['pathUpdMonofasico'] . $cnpj . '_' . $contrato . DIRECTORY_SEPARATOR.'zip'.DIRECTORY_SEPARATOR.'xml'.DIRECTORY_SEPARATOR;
+		}
+		$this->_path_raiz = $config['pathUpdMonofasico'] . $cnpj . '_' . $contrato . DIRECTORY_SEPARATOR;
 		$this->_trace = $trace;
 
 		$this->_cnpj = $cnpj;
+		$this->_contrato = $contrato;
+		$this->_id = $id;
 
 		$this->_file_exists = $this->existeArquivos('xml');
+		
+		$this->_logContrato = 'monofasico_processa'.DIRECTORY_SEPARATOR.$cnpj . '_' . $contrato;
+		log::gravaLog($this->_logContrato, 'Processa XML');
+		log::gravaLog($this->_logContrato, $this->_path);
+		
+		$this->_schedule = $schedule;
 	}
 
 	public function getExisteArquivo()
@@ -81,231 +124,231 @@ class processa_xml
 
 	public function getInformacoes($cnpj)
 	{
-		// if(!file_exists($this->_path . $cnpj)) {
-		if ($this->_trace) {
-			// print_r($arquivos);
-		} else {
-			// die("Não constam arquivo de " . $arquivos . " no diretorio, favor verificar!");
-			// echo 'Variável trace está retornando false';
-		}
-
 		$arquivos = $this->getArquivos($this->_path);
 
 		foreach ($arquivos as $arquivo) {
 			$this->leituraArquivo($cnpj, $arquivo);
-			rename($this->_path . $arquivo, $this->_path . 'processados_xml' . DIRECTORY_SEPARATOR . $arquivo);
-			// $this->excluiNota($arquivo, $cnpj);
+			if (file_exists($this->_path . $arquivo)) {
+				rename($this->_path . $arquivo, $this->_path_raiz . 'processados_xml' . DIRECTORY_SEPARATOR . $arquivo);
+			}
 		}
 	}
 
 	private function leituraArquivo($cnpj, $arquivo)
 	{
-		//ler xml
-		// $xml = simplexml_load_file($arquivo);
-		$ret = [];
-		//ta autorizado && diretorio cnpj é igual ao cnpj do xml?
-
-		// $files = glob($this->_path . $cnpj . DIRECTORY_SEPARATOR . $arquivo);
-		// //transform all xml extensions into lower case
-
-		// foreach ($files as $file) {
-		// 	$ext = pathinfo($file, PATHINFO_EXTENSION);
-
-		// 	if ($ext == 'XML') {
-		// 		$newfile = str_replace('.XML', '.xml', $file);
-		// 		rename($file, $newfile);
-		// 	}
-		// }
 		$files = glob($this->_path . $arquivo);
-		//load all xml files
-
+		$erros = 0;
 		$item_seq = 0;
 		if (count($files) > 0) {
 			foreach ($files as $file) {
-				$xml = simplexml_load_file($file);
-
-				$aut = isset($xml->protNFe->infProt->cStat) ? $xml->protNFe->infProt->cStat : 0;
-
-				// verifica se o item é aprovado
-				if ($aut == 100) {
-					///////////////////// DADOS DA NOTA */////////////////////
-					$cnpj_dest = substr($xml->NFe->infNFe->dest->CNPJ, 0, 7);
-					$num_doc = $xml->NFe->infNFe->ide->cNF;
-					$dhEmi = $xml->NFe->infNFe->ide->dhEmi;
+				$filename = pathinfo($file, PATHINFO_BASENAME);
+				$log_destinatario = '';
+				$log_emitente = '';
+				$log_operacao = '';
+				$processa = true;
+				$motivo = '';
+				$xml = carregaXMLnota($file, $this->_logContrato);
+//print_r($xml);die();
+				
+				if($xml === false){
+					$processa = false;
+					$motivo = 'Erro na estrutura XML do arquivo.';
+				}
+				
+				if($processa){
+					$xml = $xml->procNFe ?? $xml;
+//echo $file."<br>\n";
+//print_r($xml);
+					$dhEmi = '';
+					if(isset($xml->NFe->infNFe->ide) && isset($xml->NFe->infNFe->ide->dhEmi)){
+						$dhEmi = $xml->NFe->infNFe->ide->dhEmi;
+					}
 					$dhEmi = str_replace('-', '', substr($dhEmi, 0, 10));
-					$nome = str_replace("'", "", $xml->NFe->infNFe->dest->xNome);
-
-					if ($this->verificador($num_doc, $dhEmi)) {
-						$this->controlador($num_doc, $dhEmi, $nome);
-
-						$cnpj_nf = '';
-						$continua = true;
-						// if ($cnpj_emit == substr($cnpj, 0, 7)) {
-						// 	$tipo_nf = 1; // Saida
-
-						// 	// XML será sempre saída, portanto, puxar sempre 0140(destinatário) e 0150(emitente)
-						// 	// E os dois devem entrar
-						// 	$param = [];
-						// 	$temp = [];
-						// 	$temp['bloco'] 			= '0140';
-						// 	$temp['cod_part']		= $num_doc;
-						// 	$temp['nome_cliente'] 	= str_replace("'", "", $xml->NFe->infNFe->dest->xNome);
-						// 	$temp['cnpj'] 			= $xml->NFe->infNFe->dest->CNPJ; // $cnpj_dest
-						// 	$cnpj_nf = $temp['cnpj']; // $cnpj_emit
-						// 	$param[] = $temp;
-						// 	$this->gravaNotaBloco($param, $cnpj);
-
-						// 	$param = [];
-						// 	$temp = [];
-						// 	$temp['bloco'] 			= '0150';
-						// 	$temp['cod_part']		= $num_doc;
-						// 	$temp['nome_cliente'] 	= str_replace("'", "", $xml->NFe->infNFe->emit->xNome);
-						// 	$temp['cnpj'] 			= $xml->NFe->infNFe->emit->CNPJ; // $cnpj_emit
-						// 	$cnpj_nf = $temp['cnpj']; // $cnpj_emit
-						// 	$param[] = $temp;
-						// 	$this->gravaNotaBloco($param, $cnpj); // ok
-						if ($cnpj_dest == substr($cnpj, 0, 7)) {
-							$tipo_nf = 0; // Entrada
-
-							$param = [];
-							$temp = [];
-							$temp['bloco'] 			= '0140';
-							$temp['cod_part']		= $num_doc;
-							$temp['nome_cliente'] 	= str_replace("'", "", $xml->NFe->infNFe->dest->xNome);
-							$temp['cnpj'] 			= $xml->NFe->infNFe->dest->CNPJ; // $cnpj_dest
-							$cnpj_nf = $temp['cnpj']; // $cnpj_emit
-							$param[] = $temp;
-							$this->gravaNotaBloco($param, $cnpj);
-
-							$param = [];
-							$temp = [];
-							$temp['bloco'] 			= '0150';
-							$temp['cod_part']		= $num_doc;
-							$temp['nome_cliente'] 	= str_replace("'", "", $xml->NFe->infNFe->emit->xNome);
-							$temp['cnpj'] 			= $xml->NFe->infNFe->emit->CNPJ; // $cnpj_emit
-							$cnpj_nfor = $temp['cnpj']; // $cnpj_emit
-							$param[] = $temp;
-							$this->gravaNotaBloco($param, $cnpj); // ok
-						} else {
-							addPortalMensagem('Erro: CNPJ do cliente não encontrado no arquivo', 'error');
-
-							$filename = pathinfo($file, PATHINFO_BASENAME);
-							$this->moveArquivoErro($file, $filename);
-							echo $file . "<br> \n";
-
-							$continua = false;
-						}
-
-						if ($continua) {
-							// $dhEmi = $xml->NFe->infNFe->ide->dhEmi;
-							// $dhEmi = substr($dhEmi, 0, 10);
-							// $dhEmi = str_replace('-', '', $dhEmi);
-
-							$param = [];
-							$temp = [];
-							$temp['bloco']			= 'C100'; // cep 01
-							$temp['tipo_nf']		= $tipo_nf; // sep 02
-							$temp['cod_part']		= $num_doc;
-							$temp['num_doc']		= $num_doc; // sep 03
-							$temp['chave_nfe'] 		= substr($xml->NFe->infNFe['Id'], 3); // sep 09
-							$temp['data_emissao'] 	= $dhEmi; // 2022-01-21T08:39:00-03:00   sep 10
-							$temp['total_bruto']	= $xml->NFe->infNFe->total->ICMSTot->vNF; // sep 12
-							$temp['filial'] = $cnpj_nf;
-
-							$chave_nfe = $temp['chave_nfe'];
-							$param[] = $temp;
-							$this->gravaNotaBloco($param, $cnpj);
-
-							//$dados_nota['data_inc'] 				= date('Y-m-d H:i:s', time());
-							// $dados_nota['itens_total'] 			= $detCount;
-
-							// echo 'Notas incluidas no banco <br>';
-
-							///////////////////// DADOS DOS ITENS */////////////////////
-							//passar item por item e guardar os dados no array
-							$det = $xml->NFe->infNFe->det;
-							$cont = 0;
-							foreach ($det as $item) {
-
-								$ncm = $item->prod->NCM;
-
-								// $sql = "SELECT ncm FROM mgt_ncm WHERE ncm = $ncm";
-								// $row_ncm = queryMF($sql);
-
-								// $sql = "SELECT * FROM itens_entrada WHERE ncm = $ncm";
-								// $row_item = queryMF($sql);
-
-								// if(count($row_ncm) > 0 && count($row_item) == 0) {
-								$cont++;
-
-								$param = [];
-								$temp = [];
-								$temp['bloco']			= '0200'; // sep 01
-								$temp['cod_item'] 		= $item->prod->cProd; // sep 02
-								$temp['nome_produto'] 	= $item->prod->xProd; // sep 04
-								$temp['cod_ncm'] 		= $ncm; //$item->prod->NCM;   sep 08
-								$param[] = $temp;
-								$this->gravaNotaBloco($param, $cnpj); // ok
-
-								// 
-
-								$aliq_pis = 0;
-								$aliq_cofins = 0;
-								if (isset($item->PIS->PISOutr->pPIS)) {
-									$aliq_pis = !empty($item->PIS->PISOutr->pPIS) ?? 0;
-									$aliq_cofins = !empty($item->COFINS->COFINSOutr->pCOFINS) ?? 0;
-								} else if (isset($item->PIS->PISAliq->pPIS)) {
-									$aliq_pis = !empty($item->PIS->PISAliq->pPIS) ?? 0;
-									$aliq_cofins = !empty($item->COFINS->COFINSAliq->pCOFINS) ?? 0;
-								}
-
-								if (isset($item->imposto->PIS->PISNT->CST) == 04 || isset($item->imposto->PIS->PISAliq->CST) == 02 || isset($item->imposto->PIS->PISNT->CST) == 06) {
-									$param = [];
-									$temp = [];
-									$temp['bloco']			= 'C170'; // sep 01
-									$temp['num_item'] 		= ++$item_seq; // sep 02
-									$temp['cod_item'] 		= $item->prod->cProd; // sep 03
-									$temp['qtd'] 			= $item->prod->qCom; // sep 05
-									$temp['vlr_total'] 		= $item->prod->vProd; // sep 07
-									$temp['vlr_desc'] 		= !empty($item->prod->vDesc) ? $item->prod->vDesc : 0.0; // sep 08
-									$temp['cfop'] 			= $item->prod->CFOP; // sep 11
-									$temp['cst'] 			= $item->imposto->PIS->PISNT->CST ?? $item->imposto->PIS->PISAliq->CST; // sep 25
-									$temp['aliq_pis']		= $aliq_pis; // sep 27
-									$temp['aliq_cofins']	= $aliq_cofins; // sep 33
-									$temp['chv_nfe']			= $chave_nfe;
-									$param[] = $temp;
-									$this->gravaNotaBloco($param, $cnpj);
-								}
-							}
+					
+					if(!empty($this->_periodo_ini) && $dhEmi < $this->_periodo_ini){
+						$processa = false;
+						$motivo = 'Nota fora do período de análise - '.datas::dataS2D($dhEmi);
+					}
+					
+					if(!empty($this->_periodo_fim) && $dhEmi > $this->_periodo_fim){
+						$processa = false;
+						$motivo = 'Nota fora do período de análise - '.datas::dataS2D($dhEmi);
+					}
+				}
+				
+				if($processa){
+					$aut = $xml->protNFe->infProt->cStat ?? 0; //$xml->procNFe->protNFe->infProt->cStat;
+					$log_emitente		= $xml->NFe->infNFe->emit->CNPJ ?? $xml->NFe->infNFe->emit->CPF;
+					$log_destinatario	= $xml->NFe->infNFe->dest->CNPJ ?? $xml->NFe->infNFe->dest->CPF;
+					$log_operacao 		= $xml->NFe->infNFe->ide->natOp;
+					
+					if ($aut <> 100) {
+						//Rquivo não foi assinado/autorizado
+						$processa = false;
+						$motivo = 'Arquivo não autorizado: '.$filename;
+					}
+				}
+				
+				if($processa){
+					if (substr($log_destinatario, 0, 7) != substr($cnpj, 0, 7)) {
+						//Nota de saida ou nota que não é do cliente
+						$processa = false;
+						if (substr($log_emitente, 0, 7) != substr($cnpj, 0, 7)) {
+							//Não é do cliente
+							$motivo = 'Erro: CNPJ do cliente não encontrado no arquivo.';
+						}else{
+							//Nota de saida
+							$motivo = 'Erro: Nota fiscal de saída.';
 						}
 					}
-
-					// return $ret;
-
-
-					// $cnpj_nota = str_replace(['/', '.', '-'], '', $dados_nota['cnpj']);
-
-					// if ($cnpj_nota == $cnpj) {
-
-					// 	// $this->gravaNota($this->_dados, $cnpj);
-					// 	echo '<br>Json feito <br>';
-					// } else {
-					// 	echo 'Não foi criado o Json  ';
-					// }
 				}
-				// $ret .= '===================================================================== <br>';
-				// $dhEmi = $xml->NFe->infNFe->ide->dhEmi;
-			}
-		} else {
-			// $ret = 'Nenhum arquivo encontrado no diretório: ' . $this->_path;
-		}
+					
+				if ($processa) {
+					$num_doc = $xml->NFe->infNFe->ide->cNF;
+					$nome = str_replace("'", "", $xml->NFe->infNFe->dest->xNome);
+					
+					if (!$this->verificador($num_doc, $dhEmi)) {
+						//Nota já foi processada
+						$processa = false;
+						$motivo = 'Nota já processada.';
+					}
+				}
+					
+				if ($processa) {
+					$this->controlador($num_doc, $dhEmi, $nome);
 
-		return $ret;
+					$cnpj_nf = '';
+					$tipo_nf = 0; // Entrada
+
+					$param = [];
+					$temp = [];
+					$temp['bloco'] 			= '0140';
+					$temp['cod_part']		= $num_doc;
+					$temp['nome_cliente'] 	= str_replace("'", "", $xml->NFe->infNFe->dest->xNome);
+					$temp['cnpj'] 			= $xml->NFe->infNFe->dest->CNPJ; // $cnpj_dest
+					$cnpj_nf = $temp['cnpj']; // $cnpj_emit
+					$param[] = $temp;
+					$this->gravaNotaBloco($param, $cnpj);
+
+					$param = [];
+					$temp = [];
+					$temp['bloco'] 			= '0150';
+					$temp['cod_part']		= $num_doc;
+					$temp['nome_cliente'] 	= str_replace("'", "", $xml->NFe->infNFe->emit->xNome);
+					$temp['cnpj'] 			= $xml->NFe->infNFe->emit->CNPJ; // $cnpj_emit
+					$cnpj_nfor = $temp['cnpj']; // $cnpj_emit
+					$param[] = $temp;
+					$this->gravaNotaBloco($param, $cnpj); // ok
+
+					$param = [];
+					$temp = [];
+					$temp['bloco']			= 'C100'; // cep 01
+					$temp['tipo_nf']		= $tipo_nf; // sep 02
+					$temp['cod_part']		= $num_doc;
+					$temp['num_doc']		= $num_doc; // sep 03
+					$temp['chave_nfe'] 		= substr($xml->NFe->infNFe['Id'], 3); // sep 09
+					$temp['data_emissao'] 	= $dhEmi; // 2022-01-21T08:39:00-03:00   sep 10
+					$temp['total_bruto']	= $xml->NFe->infNFe->total->ICMSTot->vNF; // sep 12
+					$temp['filial'] = $cnpj_nf;
+
+					$chave_nfe = $temp['chave_nfe'];
+					$param[] = $temp;
+					$this->gravaNotaBloco($param, $cnpj);
+					$this->setPermissoesBanco(substr($temp['data_emissao'], 0, 6));
+
+					$det = $xml->NFe->infNFe->det;
+					$cont = 0;
+					foreach ($det as $item) {
+						$ncm = $item->prod->NCM;
+						$cont++;
+
+						$param = [];
+						$temp = [];
+						$temp['bloco']			= '0200'; // sep 01
+						$temp['cod_item'] 		= $item->prod->cProd; // sep 02
+						$temp['nome_produto'] 	= str_replace(";", '', $item->prod->xProd); // sep 04
+						$temp['cod_ncm'] 		= $ncm; //$item->prod->NCM;   sep 08
+						$param[] = $temp;
+						$this->gravaNotaBloco($param, $cnpj); // ok
+
+						$aliq_pis = 0;
+						$aliq_cofins = 0;
+						if (isset($item->PIS->PISOutr->pPIS)) {
+							$aliq_pis = !empty($item->PIS->PISOutr->pPIS) ?? 0;
+							$aliq_cofins = !empty($item->COFINS->COFINSOutr->pCOFINS) ?? 0;
+						} elseif (isset($item->PIS->PISAliq->pPIS)) {
+							$aliq_pis = !empty($item->PIS->PISAliq->pPIS) ?? 0;
+							$aliq_cofins = !empty($item->COFINS->COFINSAliq->pCOFINS) ?? 0;
+						}
+
+						$cst = $item->imposto->PIS->PISNT->CST ?? 0;
+
+						if ($cst == 0) {
+							$cst = $item->imposto->PIS->PISQtde->CST ?? 0;
+						}
+
+						if($cst == 0) {
+							$cst = $item->imposto->PIS->PISAliq->CST ?? 0;
+						}
+
+						// if (isset($item->imposto->PIS->PISNT->CST) == 04 || isset($item->imposto->PIS->PISAliq->CST) == 02 || isset($item->imposto->PIS->PISNT->CST) == 06 || isset($item->imposto->PIS->PISQtde->CST) == 03) {
+						if ($cst == 04 || $cst == 02 || $cst == 06 || $cst == 03) {
+							$param = [];
+							$temp = [];
+							$temp['bloco']			= 'C170'; // sep 01
+							$temp['num_item'] 		= ++$item_seq; // sep 02
+							$temp['cod_item'] 		= $item->prod->cProd; // sep 03
+							$temp['qtd'] 			= $item->prod->qCom; // sep 05
+							$temp['vlr_total'] 		= $item->prod->vProd; // sep 07
+							$temp['vlr_desc'] 		= !empty($item->prod->vDesc) ? $item->prod->vDesc : 0.0; // sep 08
+							$temp['cfop'] 			= $item->prod->CFOP; // sep 11
+							$temp['cst'] 			= $item->imposto->PIS->PISNT->CST ?? $item->imposto->PIS->PISAliq->CST; // sep 25
+							$temp['aliq_pis']		= $aliq_pis; // sep 27
+							$temp['aliq_cofins']	= $aliq_cofins; // sep 33
+							$temp['chv_nfe']			= $chave_nfe;
+							$param[] = $temp;
+							$this->gravaNotaBloco($param, $cnpj);
+						}
+					}
+					gravaLogLeituraXMLmonofasico($this->_cnpj , $this->_contrato, $arquivo, 'Arquivo PROCESSADO', $log_destinatario, $log_emitente, $log_operacao);
+				}
+				
+				if(!$processa){
+					//ERRO
+					gravaLogLeituraXMLmonofasico($this->_cnpj , $this->_contrato, $arquivo, $motivo, $log_destinatario, $log_emitente, $log_operacao,'S');
+					log::gravaLog($this->_logContrato, $motivo);
+					$erros++;
+					if(!$this->_schedule && $erros < 100){
+						addPortalMensagem($motivo.' - '.$filename, 'error');
+					}
+					$this->moveArquivoErro($file, $filename, $log_destinatario, $log_emitente, $log_operacao);
+					
+				}
+			}
+		}else {
+			addPortalMensagem('Nenhum arquivo encontrado no diretório: ' . $this->_path, 'error');
+			log::gravaLog($this->_logContrato, 'Nenhum arquivo encontrado no diretório: ' . $this->_path);
+		}
+		return;
 	}
 
-	private function moveArquivoErro($path, $filename)
+	private function setPermissoesBanco($data)
 	{
-		rename($path, $this->_path . 'erro' . DIRECTORY_SEPARATOR . $filename);
+		$sql = "SELECT * FROM mgt_monofasico_arquivos WHERE id_monofasico = $this->_id AND data = $data";
+		$row = queryMF($sql);
+
+		if (is_array($row) && count($row) > 0 && $row[0]['alterar'] == 'N') {
+			$sql = "UPDATE mgt_monofasico_arquivos SET alterar = 'S' WHERE id_monofasico = $this->_id AND data = $data";
+			queryMF($sql);
+		}
+	}
+
+	private function moveArquivoErro($path, $filename, $log_destinatario, $log_emitente, $log_operacao)
+	{
+		if(is_file($path)){
+			rename($path, $this->_path_raiz . 'erro' . DIRECTORY_SEPARATOR . $filename);
+//			gravaLogLeituraXMLmonofasico($this->_cnpj , $this->_contrato, $filename, 'Arquivo movido para pasta erro', $log_destinatario, $log_emitente, $log_operacao,'S');
+		}
 	}
 
 	private function gravaNotaBloco($dados, $cnpj)
@@ -320,15 +363,10 @@ class processa_xml
 			$arquivo = $dados[0]['bloco'];
 		}
 
-		$file = fopen($this->_path . 'arquivos' . DIRECTORY_SEPARATOR . $arquivo . '.vert', "a");
+		$file = fopen($this->_path_raiz . 'arquivos' . DIRECTORY_SEPARATOR . $arquivo . '.vert', "a");
 
 		foreach ($dados as $dado) {
-			// fwrite($file, implode('|', $dado) . "\n");
-			//write a json file
-			// fwrite($file, json_encode($dado) . "\n");
 			fwrite($file, implode('|', $dado) . "\n");
-			// print_r($dado);
-			// echo "<br>";
 		}
 
 		fclose($file);
@@ -336,67 +374,46 @@ class processa_xml
 
 	private function controlador($num_doc, $data, $nome)
 	{
-		$file = fopen($this->_path . 'arquivos' . DIRECTORY_SEPARATOR . '0000.vert', "a");
-
-		$dados = [];
-		$dados['num_doc'] = $num_doc;
-		$dados['data'] = $data;
-		$dados['nome'] = $nome;
-
-		fwrite($file, implode('|', $dados) . "\n");
-
+		$file = fopen($this->_path_raiz . 'arquivos' . DIRECTORY_SEPARATOR . '0000.vert', "a");
+		$linha = $num_doc.'|'.$data.'|'.$nome."\n";
+		fwrite($file, $linha);
 		fclose($file);
+		
+		$chave = $num_doc.'*#*'.$data;
+		$this->_notas_processadas[$chave] = '*';
 	}
 
 	private function verificador($num_doc, $data)
 	{
 		$ret = true;
+		$arquivo = $this->_path_raiz . 'arquivos' .  DIRECTORY_SEPARATOR . '0000.vert';
+		
+		//Verifica se já foram carregdas as notas processadas
+		if(count($this->_notas_processadas) == 0 && is_file($arquivo)){
+			$files = glob($arquivo);
 
-		$files = glob($this->_path . 'arquivos' .  DIRECTORY_SEPARATOR . '0000.vert');
-
-		if (count($files) > 0) {
-			$handle = fopen($files[0], "r");
-			if ($handle) {
-				while (!feof($handle)) {
-					$linha = fgets($handle);
-					if (!empty($linha)) {
-						$sep = explode('|', $linha);
-						if ($sep[0] == $num_doc && $sep[1] == $data) {
-							$ret = false;
+			if (count($files) > 0) {
+				$handle = fopen($files[0], "r");
+				if ($handle) {
+					while (!feof($handle)) {
+						$linha = fgets($handle);
+						if (!empty($linha)) {
+							$sep = explode('|', $linha);
+							// $num_doc + data
+							$chave = $sep[0].'*#*'.$sep[1];
+							$this->_notas_processadas[$chave] = '*';
+							
 						}
 					}
 				}
 			}
 		}
+		
+		if (isset($this->_notas_processadas[$num_doc.'*#*'.$data])) {
+			$ret = false;
+		}
+		
 		return $ret;
-	}
-
-	private function gravaNota($dados, $cnpj)
-	{
-		if (empty($dados)) {
-			return;
-		}
-
-		$file = fopen($this->_path . 'arquivo_xml' . DIRECTORY_SEPARATOR . 'xml.txt', "a");
-
-		foreach ($dados as $dado) {
-			// fwrite($file, implode('|', $dado) . "\n");
-			//write a json file
-			// fwrite($file, json_encode($dado) . "\n");
-			fwrite($file, implode('|', $dado) . "\n");
-			// print_r($dado . "\n");
-		}
-
-		fclose($file);
-	}
-
-	private function excluiNota($arquivo, $cnpj)
-	{
-		$file = $this->_path . $arquivo;
-
-		if (file_exists($file)) {
-			unlink($file);
-		}
 	}
 
 	private function getArquivos($dir)
@@ -404,48 +421,16 @@ class processa_xml
 		$ret = [];
 		$diretorio = dir($dir);
 
-		while ($arquivo = $diretorio->read()) {
-			$ext = ltrim(substr($arquivo, strrpos($arquivo, '.')), '.');
-			$ext = strtolower($ext);
-			if ($arquivo != '.' && $arquivo != '..' && $ext == 'xml') {
-				$ret[] = $arquivo;
+		if(!is_null($diretorio) && $diretorio !== false){
+			while ($arquivo = $diretorio->read()) {
+				$ext = ltrim(substr($arquivo, strrpos($arquivo, '.')), '.');
+				$ext = strtolower($ext);
+				if ($arquivo != '.' && $arquivo != '..' && $ext == 'xml') {
+					$ret[] = $arquivo;
+				}
 			}
 		}
 		return $ret;
 	}
 }
 
-
-
-// $dados_nota['itens_aprovados'] 	= $cont;
-
-	// $ret .= '<hr> ITEM DA NOTA <br>';
-	// $ret .= 'cProd: ' roduto: ' . $dados_item['nome_produto'] . '<br>';
-	// $ret .= 'NCM: ' . . $dados_item['cod_prod'] . '<br>';
-	// $ret .= 'CFOP: ' . $dados_item['cfop'] . '<br>';
-	// $ret .= 'Nome do p$dados_item['ncm'] . '<br>';
-	// $ret .= 'Valor: ' . $dados_item['valor'] . '<br>';
-	// $ret .= 'Desconto: ' . $dados_item['desconto'] . '<br>';
-	// $ret .= 'Valor com desconto: ' . $dados_item['valor_com_desconto'] . '<br>';
-	// $ret .= 'NCM PIS: ' . $ncm[0]['aliquota_pis'] . '%<br>';
-	// $ret .= 'NCM COFINS: ' . $ncm[0]['aliquota_cofins'] . '%<br>';
-	// $total_ncm = $ncm[0]['aliquota_pis'] + $ncm[0]['aliquota_cofins'];
-	// $ret .= 'Total de NCM: ' . $total_ncm . '%<br>';
-	// $desconto_ncm = ($dados_item['valor_com_desconto'] * $total_ncm) / 100;
-	// $valor_final = $dados_item['valor_com_desconto'] - $desconto_ncm;
-	// $ret .= 'Valor com aliquota: ' . $valor_final . '<br>';
-	// $ret .= '<hr>';
-
-
-
-
-	// $ret .= '<hr> NOTA FISCAL <br>';
-	// $ret .= 'Nome: ' . $dados_nota['nome'] . '<br>';
-	// $ret .= 'cNF: ' . $dados_nota['cod_nf'] . '<br>';
-	// $ret .= 'data_emi: ' . $dados_nota['data_emi'] . '<br>';
-	// $ret .= 'data_inc: ' . $dados_nota['data_inc'] . '<br>';
-	// $ret .= 'CNPJ: ' . $dados_nota['cnpj'] . '<br>';
-	// $ret .= 'ID Nota: ' . $dados_nota['id_nota'] . '<br>';
-	// $ret .= 'Total de itens: ' . $dados_nota['itens_total'] . '<br>';
-	// $ret .= 'Itens aprovados: ' . $dados_nota['itens_aprovados'] . '<br><br>';
-	// $ret .= '<hr>';

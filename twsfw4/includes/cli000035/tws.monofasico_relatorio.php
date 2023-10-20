@@ -16,37 +16,44 @@ ini_set('display_errors', 1);
 ini_set('display_startup_erros', 1);
 error_reporting(E_ALL);
 
-class monofasico_relatorio {
+class monofasico_relatorio
+{
 
-    // CNPJ cliente
-    private $_cnpj;
+	// CNPJ cliente
+	private $_cnpj;
+	
+	//Contrato
+	private $_contrato;
 
-    // pasta com os arquivos
-    private $_path;
+	// pasta com os arquivos
+	private $_path;
 
-    // Classe relatorio
-	private $_relatorio01;
-    // Classe relatorio
-	private $_relatorio02;
-
+	// Classe relatorio
+	private $_relatorio;
 	// Nome do programa
+	
 	private $_programa;
 
-    // Titulo
+	// Titulo
 	private $_titulo;
 
-    // Razão social do cliente
-    private $_razao;
+	// Razão social do cliente
+	private $_razao;
+	
+	//Tipo de relatorio
+	private $_tipo;
 
-    public function __construct($cnpj, $contrato) {
+	public function __construct($cnpj, $contrato, $id, $tipo = '')
+	{
 		global $config;
-		conectaERP();
 		conectaMF();
 
-		$this->_titulo = 'Relatório';
 		$this->_programa = get_class($this);
 		$this->_path = $config['pathUpdMonofasico'] . $cnpj . '_' . $contrato . DIRECTORY_SEPARATOR;
-        $this->_cnpj = $cnpj;
+		$this->_cnpj = $cnpj;
+		$this->_contrato = $contrato;
+		
+		$this->_tipo = $tipo;
 
 		$param = [];
 		$param['width'] = 'AUTO';
@@ -55,157 +62,78 @@ class monofasico_relatorio {
 		$param['filter'] = false;
 		$param['ordenacao'] = false;
 		$param['titulo'] = 'Monofásicos';
-		$this->_tabela = new tabela01($param);
-
-		$param = [];
-		$param['programa'] = $this->_programa;
-		$param['titulo'] = 'Resumo geral de produtos adquiridos';
-		$this->_relatorio01 = new relatorio01($param);
-
-        $param = [];
-		$param['programa'] = $this->_programa;
-		$param['titulo'] = 'Resumo proporcional de crédito - Fabricante';
-		$this->_relatorio02 = new relatorio01($param);
-
-        $param = [];
-		$param['programa'] = $this->_programa;
-		$param['titulo'] = 'Resumo proporcional de crédito - Distribuidor';
-		$this->_relatorio03 = new relatorio01($param);
-
-        $param = [];
-		$param['programa'] = $this->_programa;
-		$param['titulo'] = 'Resumo de crédito a compensar';
-		$this->_relatorio04 = new relatorio01($param);
+		//$param['cancela'] = true;
+		$this->_relatorio = new relatorio01($param);
+		
+		$this->montaColunas();
+		
+		set_time_limit(0);
 	}
 
-    public function index() {
-        $ret = '';
+	public function __toString()
+	{
+		$ret = '';
 
-        $dados = [];
-		$dados = $this->getDados('geral');
-		$this->montaColunas($this->_relatorio01);
-		$this->_relatorio01->setDados($dados);
-
-        $botaoCancela = [];
-		$botaoCancela["onclick"] = "setLocation('" . getLink() . "index')";
-		$botaoCancela["texto"] = "Retornar";
-		$botaoCancela['cor'] = 'warning';
-		$this->_relatorio01->addBotao($botaoCancela);
-		$ret .= $this->_relatorio01;
-
-
-        $dados = [];
-        $dados = $this->getDados('fabricante');
-		$this->montaColunas($this->_relatorio02);
-		$this->_relatorio02->setDados($dados);
-        $ret .= $this->_relatorio02;
-
-
-        $dados = [];
-        $dados = $this->getDados('distribuidor');
-		$this->montaColunas($this->_relatorio03);
-		$this->_relatorio03->setDados($dados);
-        $ret .= $this->_relatorio03;
-
-
-        $dados = [];
-        $dados = $this->getDados('compensar');
-		$this->montaColunas($this->_relatorio04);
-		$this->_relatorio03->setDados($dados);
-        $ret .= $this->_relatorio04;
+		$dados = $this->getDados();
+		if($this->_tipo == 'erro'){
+			$this->_titulo = 'Relatório de XML Processados com ERROS';
+		}else{
+			$this->_titulo = 'Relatório de XML Processados - Sucesso';
+		}
+		$this->_relatorio->setTitulo($this->_titulo);
+		$this->_relatorio->setToExcel(true,'relatorio_importacao_'.$this->_cnpj);
+		
+		$this->_relatorio->setDados($dados);
+		
+		if(count($dados) > 20000){
+			$this->_relatorio->setPrint(false);
+		}
+		
+		$ret .= $this->_relatorio;
 
 		return $ret;
-    }
-    
-    private function montaColunas($relatorio) {
-        $relatorio->addColuna(array('campo' => 'data_emi',        'etiqueta' => 'Período',             'tipo' => 'T','width' => 80,'posicao' => 'C'));
-        $relatorio->addColuna(array('campo' => 'razao',           'etiqueta' => 'Empresa',             'tipo' => 'T','width' => 80,'posicao' => 'C'));
-		$relatorio->addColuna(array('campo' => 'bruto',           'etiqueta' => 'Valor bruto',         'tipo' => 'V','width' => 80,'posicao' => 'E'));
-		$relatorio->addColuna(array('campo' => 'total_pis',    'etiqueta' => 'Valor total PIS',     'tipo' => 'V','width' => 80,'posicao' => 'E'));
-		$relatorio->addColuna(array('campo' => 'total_cofins',    'etiqueta' => 'Valor total COFINS',  'tipo' => 'V','width' => 80,'posicao' => 'C'));
-		$relatorio->addColuna(array('campo' => 'liquido',         'etiqueta' => 'Valor líquido',       'tipo' => 'V','width' => 100,'posicao' => 'E'));
-    }
-
-    private function getDados($tipo) {
-        $ret = [];
-
-		$files = glob($this->_path . 'arquivos/resumoCompliance.vert');
-
-		if (count($files) > 0) {
-			$handle = fopen($files[0], "r");
-			if($handle) {
-				while(!feof($handle)) {
-					$linha = fgets($handle);
-					if(!empty($linha)) {
-						$sep = explode('|', $linha);
-                        $this->getRazao();
-						if(count($sep) > 1) {
-                            $mes = substr($sep[0], 4, 2);
-                            $ano = substr($sep[0], 0, 4);
-                            $data_emi = $mes . '/' . $ano;
-                            if ($tipo == 'geral') {
-                                $param = [];
-                                $param['data_emi'] = $data_emi;
-                                $param['razao'] = $this->_razao;
-                                $param['bruto'] = $sep[1];
-                                $param['total_pis'] = $sep[2] + $sep[6];
-                                $param['total_cofins'] = $sep[3] + $sep[7];
-                                $param['liquido'] = $param['total_pis'] + $param['total_cofins'];
-                                $ret[] = $param;
-                            } else if ($tipo == 'fabricante') {
-                                $param = [];
-                                $param['data_emi'] = $data_emi;
-                                $param['razao'] = $this->_razao;
-                                $param['bruto'] = $sep[1];
-                                $param['total_pis'] = $sep[4];
-                                $param['total_cofins'] = $sep[5];
-                                $param['liquido'] = $param['total_pis'] + $param['total_cofins'];
-                                $ret[] = $param;
-                            } else if ($tipo == 'distribuidor') {
-                                $param = [];
-                                $param['data_emi'] = $data_emi;
-                                $param['razao'] = $this->_razao;
-                                $param['bruto'] = $sep[1];
-                                $param['total_pis'] = $sep[8];
-                                $param['total_cofins'] = $sep[9];
-                                $param['liquido'] = $param['total_pis'] + $param['total_cofins'];
-                                $ret[] = $param;
-                            } else if ($tipo == 'compensar') {
-                                $param = [];
-                                $param['data_emi'] = $data_emi;
-                                $param['razao'] = $this->_razao;
-                                $param['bruto'] = $sep[1];
-                                $param['total_pis'] = $sep[4] + $sep[8];
-                                $param['total_cofins'] = $sep[5] + $sep[9];
-                                $param['liquido'] = $param['total_pis'] + $param['total_cofins'];
-                                $ret[] = $param;
-                            }
-						}
-					}
-				}
-			}
-		}
-
-        return $ret;
-    }
-
-    private function getRazao() {
-		$file = glob($this->_path . 'arquivos/0000.vert');
-
-		if (count($file) > 0) {
-			$handle = fopen($file[0], "r");
-			if($handle) {
-				while(!feof($handle)) {
-					$linha = fgets($handle);
-					$linha = str_replace(["\r\n","\n","\r"], '', $linha);
-					if(!empty($linha)) {
-						$sep = explode('|', $linha);
-						$this->_razao = $sep[2];
-						return true;
-					}
-				}
-			}
-		}
 	}
-
+	
+	private function montaColunas(){
+		$this->_relatorio->addColuna(array('campo' => 'dia'			, 'etiqueta' => 'Dia'			, 'tipo' => 'D', 'width' =>  80, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'hora'		, 'etiqueta' => 'Hora'			, 'tipo' => 'T', 'width' =>  80, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'usuario'		, 'etiqueta' => 'Usuário'		, 'tipo' => 'T', 'width' => 150, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'arquivo'		, 'etiqueta' => 'Arquivo'		, 'tipo' => 'T', 'width' => 200, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'obs'			, 'etiqueta' => 'Observação'	, 'tipo' => 'T', 'width' => 300, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'emitente'	, 'etiqueta' => 'Emitente'		, 'tipo' => 'T', 'width' => 150, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'destinatario', 'etiqueta' => 'Destinatario'	, 'tipo' => 'T', 'width' => 150, 'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'operacao'	, 'etiqueta' => 'Operação'		, 'tipo' => 'T', 'width' => 150, 'posicao' => 'E'));
+	}
+	
+	private function getDados(){
+		$ret = [];
+		
+		$sql = "SELECT * FROM mgt_monofasico_log_xml WHERE cnpj = '".$this->_cnpj."' AND contrato = '".$this->_contrato."'";
+		if($this->_tipo == 'erro'){
+			$sql .= " AND erro = 'S'";
+		}else{
+			$sql .= " AND erro <> 'S'";
+		}
+		$rows = query($sql);
+		
+		if(is_array($rows) && count($rows) > 0){
+			foreach ($rows as $row){
+				$dia = datas::dataS2D(str_replace('-', '', substr($row['data'], 0, 10)));
+				$hora = substr($row['data'], 11, 8);
+				$temp = [];
+				$temp['dia'] 	 		= $dia;
+				$temp['hora'] 	 		= $hora;
+				$temp['usuario'] 		= $row['usuario'];
+				$temp['arquivo'] 		= $row['arquivo'];
+				$temp['obs']			= $row['obs'];
+				$temp['emitente'] 	 	= $row['emitente'];
+				$temp['destinatario']	= $row['destinatario'];
+				$temp['operacao'] 	 	= $row['operacao'];
+				
+				$ret[] = $temp;
+			}
+		}
+		
+		return $ret;
+	}
 }

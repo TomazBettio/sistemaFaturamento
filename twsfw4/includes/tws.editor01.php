@@ -157,8 +157,10 @@ class editor01{
 		$param['botoesTitulo'][] = $p;
 		
 		$param['class'] = 'card card-danger card-outline';
+		$param['titulo'] = $this->_editoresTitulo[$id];
+		$param['conteudo'] = $ret;
 		
-		$ret = addCard($this->_editoresTitulo[$id], $ret, $param);
+		$ret = addCard($param);
 		
 		return $ret;
 	}

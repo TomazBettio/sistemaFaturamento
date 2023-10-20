@@ -15,6 +15,7 @@ if(!defined('TWSiNet') || !TWSiNet) die('Esta nao e uma pagina de entrada valida
 //ini_set('display_startup_erros',1);
 //error_reporting(E_ALL);
 
+#[\AllowDynamicProperties]
 class relatorio01{
 	
 	//Nome do Programa
@@ -35,11 +36,17 @@ class relatorio01{
 	//Indica se deve mostrar filtro
 	protected $_mostraFiltro;
 	
+	//Indica o tipo de filtro a ser utilizado
+	protected $_tipoFiltro;
+	
 	// Indica se exporta os dados para EXCEL
 	protected $_toExcel;
 	
 	// Indica se o botao excel ja foi adicionado
 	protected $_btExcel = false;
+	
+	//Indica se deve imprimir o cabecalho da tabela ou direto os dados
+	protected $_impCab = true;
 	
 	//Botão cancela e link cancela
 	protected $_btCancela;
@@ -66,6 +73,11 @@ class relatorio01{
 	// Rodape
 	protected $_footer = '';
 	
+	// Indica se os botões do Título vão ser separados ou dropDown
+	protected $_dropDown = false;
+	
+	
+	protected $_formTabela = array();
 	//-------------------------------------------------------------------------- Tabela
 	protected $_browser = [];
 	
@@ -112,6 +124,15 @@ class relatorio01{
 	//Cabeçalho do pdf
 	protected $_cabecalhoPDF = '';
 	
+	//print
+	protected $_print;
+	
+	//Texto a ser incluido antes da tabela
+	protected $_textoEmail = '';
+	
+	//--------------------------------------------------- EXCEL -------------------------------------
+	protected $_headerExcel = [];
+	
 	public function __construct($param = []){
 		$this->_programa	= $param['programa'] ?? '';
 		$this->_titulo 		= $param['titulo'] ?? '';
@@ -121,8 +142,11 @@ class relatorio01{
 		
 		$this->_toExcel 	= $param['toExcel'] ?? false;
 		
+		$this->_impCab		= $param['imprimeCabecalho'] ?? true;
+		
 		//------------------------------------------------------------------------------------------------------- Filtro -------------------
 		$this->_mostraFiltro = $param['filtro'] ?? true;
+		$this->_tipoFiltro = $param['filtroTipo'] ?? 1;
 		$paramFiltro = [];
 		$paramFiltro['tamanho'] = 12;
 		if(isset($param['colunasForm'])){
@@ -132,7 +156,17 @@ class relatorio01{
 		if(!$this->_mostraFiltro){
 			$paramFiltro['carregaRespostas'] = false;
 		}
-		$this->_filtro = new formFiltro01($this->_programa, $paramFiltro);
+		
+		if(isset($param['link'])){
+		    $paramFiltro['link'] = $param['link'];
+		}
+		if($this->_tipoFiltro == 1){
+		    $this->_filtro = new formFiltro01($this->_programa, $paramFiltro);
+		}
+		elseif($this->_tipoFiltro == 2){
+		    $this->_filtro = new formFiltro02($this->_programa, $paramFiltro);
+		}
+		
 		
 		$this->_btCancela 		= $param['cancela'] ?? false;
 		$this->_linkCarcela 	= $param['cancelaLink'] ?? getLink().'index';
@@ -170,7 +204,14 @@ class relatorio01{
 			
 			// Se existir dados a serem mostrados esconde o filtro
 			if($quantDados > 0){
-				addPortalJquery("$('#formFiltro').hide();");
+			    if($this->_tipoFiltro == 1){
+				    addPortalJquery("$('#formFiltro').hide();");
+			    }
+			}
+			else{
+			    if($this->_tipoFiltro == 2){
+			        addPortalJquery("$('#bt_form').ControlSidebar('toggle');", 'F');
+			    }
 			}
 			
 			if($this->_mostraFiltro){
@@ -182,12 +223,22 @@ class relatorio01{
 				$botao['onclick']= 'window.open(\''.$this->_linkPDF.'\')';
 				$botao['texto']	= 'PDF';
 				$botao['id'] = 'bt_pdf';
+				if($this->_dropDown && count($this->_botaoTitulo) > 0){
+				    $this->_botaoTitulo[] = ['separador' => true];
+				}
 				$this->_botaoTitulo[] = $botao;
 			}
 			//print_r($this->_campos);
 			if($this->_toExcel && !$this->_auto && $quantDados > 0){
 				$excel = new excel02($this->_arqExcel);
+				if(is_array($this->_headerExcel) && count($this->_headerExcel) > 0){
+				    $excel->setCabecalho($this->_headerExcel);
+				}
+				$primeira_worksheet = '';
 				foreach ($this->_browser as $secao => $tabela){
+				    if($primeira_worksheet === ''){
+				        $primeira_worksheet = $secao;
+				    }
 					if(isset($this->_tituloSecao[$secao]['worksheet'])){
 						$excel->addWorksheet($secao, $this->_tituloSecao[$secao]['worksheet']);
 					}else{
@@ -200,6 +251,10 @@ class relatorio01{
 					}
 					$excel->setDados($this->_cab[$secao], $dadosExcel, $this->_campo[$secao],$this->_tipo[$secao]);
 				}
+				if($primeira_worksheet !== ''){
+				    //seta a WS ativa para a primeira seção
+				    $excel->setWSAtiva($primeira_worksheet);
+				}
 				//$excel->setDados($this->_cab, $this->_browser->getDados(),$this->_campo,$this->_tipo);
 				//$excel->grava();
 				$excel->grava();
@@ -210,17 +265,30 @@ class relatorio01{
 					$botao['onclick']= 'window.open(\''.$this->_linkExcel.'\')';
 					$botao['texto']	= $this->_textoExportaPlanilha;
 					$botao['id'] = 'bt_excel';
+					if($this->_dropDown && count($this->_botaoTitulo) > 0 && !$this->_toPDF){
+					    $this->_botaoTitulo[] = ['separador' => true];
+					}
 					$this->_botaoTitulo[] = $botao;
 					$this->_btExcel = true;
 				}
 			}
 			
 			if($this->_filtro->getQuantPerguntas() > 0 && !$this->_auto && $this->_mostraFiltro){
-				$botao = [];
-				$botao["onclick"]= "$('#formFiltro').toggle();";
-				$botao["texto"]	= "Par&acirc;metros";
-				$botao["id"] = "bt_form";
-				$this->_botaoTitulo[] = $botao;
+			    if($this->_tipoFiltro == 1){
+			        $botao = [];
+			        $botao["onclick"]= "$('#formFiltro').toggle();";
+			        $botao["texto"]	= "Par&acirc;metros";
+			        $botao["id"] = "bt_form";
+			        $this->_botaoTitulo[] = $botao;
+			    }
+			    if($this->_tipoFiltro == 2){
+			        $botao = [];
+			        $botao["data-widget"]= "control-sidebar";
+			        $botao["texto"]	= "Par&acirc;metros";
+			        $botao["id"] = "bt_form";
+			        $this->_botaoTitulo[] = $botao;
+			    }
+				
 				$ret .= $filtro;
 			}
 			
@@ -244,18 +312,25 @@ class relatorio01{
 			}
 			
 			//print_r($this->_tituloSecao);
+			$retTemp = '';
 			if(count($this->_browser ) > 0){
 				foreach ($this->_browser as $secao => $tabela){
 					if(isset($this->_tituloSecao[$secao]['titulo'])){
-						$ret .= '<h2>'.$this->_tituloSecao[$secao]['titulo'];
+					    $retTemp .= '<h2>'.$this->_tituloSecao[$secao]['titulo'];
 						if(isset($this->_tituloSecao[$secao]['sub'])){
-							$ret .= '<small>'.$this->_tituloSecao[$secao]['sub'].'</small>';
+						    $retTemp .= '<small>'.$this->_tituloSecao[$secao]['sub'].'</small>';
 						}
-						$ret .= '</h2>'."\n";
+						$retTemp .= '</h2>'."\n";
 					}
-					$ret .= $tabela;
+					$retTemp .= $tabela;
 				}
 			}
+			
+			if(is_array($this->_formTabela) && count($this->_formTabela) > 0){
+			    $retTemp = formbase01::form($this->_formTabela, $retTemp);
+			}
+			
+			$ret .= $retTemp;
 			
 			if($this->_toPDF && !$this->_auto && $quantDados > 0){
 				$htmlPDF = '';
@@ -323,6 +398,8 @@ class relatorio01{
 			
 			$param['titulo'] = $this->_titulo;
 			$param['conteudo'] = $ret;
+			$param['icone'] = $this->_icone;
+			$param['botoesTituloDropDown'] = $this->_dropDown;
 			$ret = addCard($param);
 		}
 		
@@ -350,6 +427,22 @@ class relatorio01{
 	public function getPrimeira(){
 		return $this->_filtro->getPrimeira();
 	}
+	
+	public function getCampos($secao = 0){
+        return $this->_campo[$secao] ?? [];
+	}
+	
+	public function getConfigCampos($secao = 0){
+	    $ret = [];
+	    
+	    $ret['etiqueta'] 	= $this->_cab[$secao] ?? [];
+	    $ret['tipo'] 		= $this->_tipo[$secao] ?? [];
+	    $ret['campo'] 		= $this->_campo[$secao] ?? [];
+	    $ret['width'] 		= $this->_width[$secao] ?? [];
+	    $ret['posicao'] 	= $this->_posicao[$secao] ?? [];
+	    
+	    return $ret;
+	}
 	//-------------------------------------------------------------------------------------- SET -------------------------------------
 	
 	public function setNowrap($now, $secao = 0){
@@ -365,15 +458,19 @@ class relatorio01{
 	}
 	
 	public function setParamTabela($param = [], $secao = 0){
-		$param['paginacao'] 	= $param['paginacao']	?? false;
-		$param['scroll'] 		= $param['scroll']		?? true;
-		$param['scrollX']		= $param['scrollX']		?? true;
-		$param['scrollY']		= $param['scrollY']		?? true;
-		$param['imprimeZero'] 	= $param['imprimeZero']	?? true;
-		$param['width'] 		= $param['width']		?? 'AUTO';
-		$param['filtro']		= $param['filtro']		?? true;
-		$param['info']			= $param['info']		?? true;
-		$param['ordenacao']		= $param['ordenacao']	?? true;
+		$param['paginacao'] 	    = $param['paginacao']	?? false;
+		$param['scroll'] 		    = $param['scroll']		?? true;
+		$param['scrollX']		    = $param['scrollX']		?? true;
+		$param['scrollY']		    = $param['scrollY']		?? true;
+		$param['imprimeZero'] 	    = $param['imprimeZero']	?? true;
+		$param['width'] 		    = $param['width']		?? 'AUTO';
+		$param['filtro']		    = $param['filtro']		?? true;
+		$param['info']			    = $param['info']		?? true;
+		$param['ordenacao']		    = $param['ordenacao']	?? true;
+		$param['print']             = $param['print']       ?? $this->_print;
+		$param['acoes']			    = $param['acoes']		?? [];
+		//Indica se deve imprimir o cabecalho da tabela ou direto os dados
+		$param['imprimeCabecalho']	= $param['impCab']		?? $this->_impCab;
 		$this->_paramTabela[$secao] = $param;
 	}
 	
@@ -412,10 +509,10 @@ class relatorio01{
 			}
 			
 			if(!$path){
-				$this->_arqExcel = $config['tempURL'].$arquivo;
-	//echo "Arquivo1 : ".$this->_arqExcel." <br>\n";
-				$this->_linkExcel = $config["raizTemp"].$arquivo;
-	//echo "Arquivo2 : ".$this->_linkExcel." <br>\n";
+				$this->_arqExcel = $config['tempPach'].$arquivo;
+//echo "Arquivo1 : ".$this->_arqExcel." <br>\n";
+				$this->_linkExcel = $config['tempURL'].$arquivo;
+//echo "Arquivo2 : ".$this->_linkExcel." <br>\n";
 			}else{
 				$this->_arqExcel = $arquivo;
 				$this->_linkExcel = '';
@@ -441,9 +538,9 @@ class relatorio01{
 		}else{
 			$arquivo = $nome.".pdf";
 		}
-		$this->_arqPDF = $config['tempURL'].$arquivo;
+		$this->_arqPDF = $config['tempPach'].$arquivo;
 		//echo "Arquivo1 : ".$this->_arqPDF." <br>\n";
-		$this->_linkPDF = $config["raizTemp"].$arquivo;
+		$this->_linkPDF = $config["tempURL"].$arquivo;
 		//echo "Arquivo2 : ".$this->_linkPDF." <br>\n";
 	}
 	
@@ -528,12 +625,12 @@ class relatorio01{
 		$this->_icone = $icone;
 	}
 	
-	function setFooter($texto, $secao = 0){
+	public function setFooter($texto, $secao = 0){
 		$this->_footer = $texto;
 		$this->_browser[$secao]->setFooter($texto);
 	}
 	
-	function setTituloSecao($secao, $titulo, $subTitulo = ''){
+	public function setTituloSecao($secao, $titulo, $subTitulo = ''){
 		//echo "$secao - $titulo - $subTitulo <br>\n";
 		if(!empty($titulo)){
 			$this->_tituloSecao[$secao]['titulo'] = $titulo;
@@ -543,7 +640,7 @@ class relatorio01{
 		}
 	}
 	
-	function setTituloSecaoPDF($titulo, $subTitulo = '', $secao = 0){
+	public function setTituloSecaoPDF($titulo, $subTitulo = '', $secao = 0){
 		//echo "$secao - $titulo - $subTitulo <br>\n";
 		if(!empty($titulo)){
 			$this->_tituloSecaoPDF[$secao]['titulo'] = $titulo;
@@ -557,7 +654,7 @@ class relatorio01{
 	 * @param mixed  $secao 	- Identificação da Secao
 	 * @param string $titulo	- Título da Worksheet
 	 */
-	function setTituloSecaoPlanilha($secao, $titulo){
+	public function setTituloSecaoPlanilha($secao, $titulo){
 		//echo "$secao - $titulo - $subTitulo <br>\n";
 		if(!empty($titulo)){
 			$this->_tituloSecao[$secao]['worksheet'] = $titulo;
@@ -580,6 +677,32 @@ class relatorio01{
 		}
 	}
 	
+	public function setTextoEmail($texto){
+		$this->_textoEmail = $texto;
+	}
+	
+	public function setHeaderPdf($html, $altura = 7){
+	    $this->_headerPDF = $html;
+	    $this->_headerAltPDF = $altura;
+	}
+	
+	public function setHeaderExcel($dadosHeaderExcel){
+	    $this->_headerExcel = $dadosHeaderExcel;
+	}
+	
+	public function setCabecalhoPdf($html){
+	    $this->_cabecalhoPDF = $html;
+	}
+	
+	public function setPrint($print){
+		$this->_print = $print === false ? false : true;
+		
+		if(count($this->_browser) > 0){
+			foreach ($this->_browser as $i => $broser){
+				$this->_browser[$i]->setPrint($this->_print);
+			}
+		}
+	}
 	//-------------------------------------------------------------------------------------- ADD -------------------------------------
 	
 	public function addBotao($param){
@@ -663,6 +786,10 @@ class relatorio01{
 			$msg = $msgIni;
 		}
 		
+		if(!empty($this->_textoEmail)){
+			$msg .= $this->_textoEmail;
+		}
+		
 		//Passa as tabelas como AUTO 
 		if(count($this->_browser) > 0){
 			foreach ($this->_browser as $secao => $b){
@@ -679,7 +806,14 @@ class relatorio01{
 //			unset($excel);
 			
 			$excel = new excel02($this->_arqExcel);
+			if(is_array($this->_headerExcel) && count($this->_headerExcel) > 0){
+			    $excel->setCabecalho($this->_headerExcel);
+			}
+			$primeira_worksheet = '';
 			foreach ($this->_browser as $secao => $tabela){
+			    if($primeira_worksheet === ''){
+			        $primeira_worksheet = $secao;
+			    }
 				if(isset($this->_tituloSecao[$secao]['worksheet'])){
 					$excel->addWorksheet($secao, $this->_tituloSecao[$secao]['worksheet']);
 				}else{
@@ -692,6 +826,10 @@ class relatorio01{
 				}
 				$excel->setDados($this->_cab[$secao], $dadosExcel, $this->_campo[$secao],$this->_tipo[$secao]);
 			}
+			if($primeira_worksheet !== ''){
+			    //seta a WS ativa para a primeira seção
+			    $excel->setWSAtiva($primeira_worksheet);
+			}
 			//$excel->setDados($this->_cab, $this->_browser->getDados(),$this->_campo,$this->_tipo);
 			//$excel->grava();
 			$excel->grava();
@@ -703,7 +841,7 @@ class relatorio01{
 		
 		if($this->_toPDF && $this->_quantDados[0] > 0){
 			$htmlPDF = '';
-			$paramTabPdf = array();
+			$paramTabPdf = [];
 			
 			foreach ($this->_browser as $secao => $tabela){
 				$tabPdf = new tabela_pdf($paramTabPdf);
@@ -726,7 +864,7 @@ class relatorio01{
 			}
 			//echo "<br><br><br><br>$htmlPDF<br><br><br><br>";
 			
-			$paramPDF = array();
+			$paramPDF = [];
 			$paramPDF['orientacao'] = 'L';
 			$PDF = new pdf_exporta($paramPDF);
 			if($this->_cabecalhoPDF != ''){
@@ -797,15 +935,140 @@ class relatorio01{
 		$param['embeddedImage'] = $embeddedImage;
 		$param['responderPara'] = $responderPara;
 		$param['bcc'] 			= $bcc;
-		enviaEmail($param);
+		
+		return enviaEmail($param);
 	}
     
-	public function setHeaderPdf($html, $altura = 7){
-	    $this->_headerPDF = $html;
-	    $this->_headerAltPDF = $altura;
+	public function agendaEmail($dia, $hora, $programa, $para,$titulo = '', $de = '', $msgAntes = '', $copiaOculta = '', $emailsender = [],$embeddedImage = [], $responderPara=[], $teste = false, $compactado = false){
+		$anexos = [];
+		$msg = '';
+
+		if($this->_toExcel && $this->_quantDados[0] > 0){
+			
+			//			$excel = new excel01($this->_arqExcel);
+			//			$excel->setDados($this->_cab, $this->_browser->getDados(),$this->_campo,$this->_tipo);
+			//			$excel->grava();
+			//			$anexos[] = $this->_arqExcel;
+			//			unset($excel);
+			
+			$excel = new excel02($this->_arqExcel);
+			if(is_array($this->_headerExcel) && count($this->_headerExcel) > 0){
+				$excel->setCabecalho($this->_headerExcel);
+			}
+			$primeira_worksheet = '';
+			foreach ($this->_browser as $secao => $tabela){
+				if($primeira_worksheet === ''){
+					$primeira_worksheet = $secao;
+				}
+				if(isset($this->_tituloSecao[$secao]['worksheet'])){
+					$excel->addWorksheet($secao, $this->_tituloSecao[$secao]['worksheet']);
+				}else{
+					$excel->addWorksheet($secao, 'Planilha '.$secao);
+				}
+				$dadosExcel = $tabela->getDados();
+				//Adiciona o total a tabela excel
+				if(isset($this->_dadosTfoot[$secao])){
+					$dadosExcel[] = $this->_dadosTfoot[$secao];
+				}
+				$excel->setDados($this->_cab[$secao], $dadosExcel, $this->_campo[$secao],$this->_tipo[$secao]);
+			}
+			if($primeira_worksheet !== ''){
+				//seta a WS ativa para a primeira seção
+				$excel->setWSAtiva($primeira_worksheet);
+			}
+			$excel->grava($compactado);
+			if($compactado){
+				$anexos[] = str_replace('.xlsx', '.zip', $this->_arqExcel);
+			}else{
+				$anexos[] = $this->_arqExcel;
+			}
+			unset($excel);
+			
+			$anexos[] = $this->_arqExcel;
+		}
+		
+		if($titulo == ""){
+			$titulo = $this->_titulo;
+		}
+		
+		if($msgAntes != ''){
+			$msg .= $msgAntes;
+		}
+		
+		if(!empty($this->_textoEmail)){
+			$msg .= $this->_textoEmail;
+		}
+		
+		
+		if(count($this->_browser ) > 0){
+			foreach ($this->_browser as $secao => $tabela){
+				if(isset($this->_tituloSecao[$secao]['titulo'])){
+					$msg .= '<h2>'.$this->_tituloSecao[$secao]['titulo'];
+					if(isset($this->_tituloSecao[$secao]['sub'])){
+						$msg .= '<small>'.$this->_tituloSecao[$secao]['sub'].'</small>';
+					}
+					$msg .= '</h2>'."\n";
+				}
+				$msg .= $tabela;
+			}
+		}
+		
+		if(strlen($msg) > 2000000 || count($this->_campo) > 56 || $this->_enviaTabelaCorpoEmail == false){
+			$msg = "Segue anexo o relatório ".$titulo.".";
+		}
+		
+		if(empty($msg)){
+			if(!empty($this->_textoSemDados)){
+				$msg = $this->_textoSemDados;
+			}else{
+				$msg = "Não existem dados!";
+			}
+		}
+		
+		/*/
+		if(!empty($msgFim)){
+			$msg .= $msgFim;
+		}
+		
+		if(!empty($mensagem)){
+			$msg = $mensagem;
+		}
+		/*/
+		
+		$param = [];
+		$param['dia'] 			= $dia;
+		$param['hora'] 			= $hora;
+		$param['programa']		= $programa;
+		$param['mensagem'] 		= $msg;
+		$param['destinatario'] 	= $para;
+		$param['assunto'] 		= $titulo;
+		$param['emailsender']	= $emailsender;
+		$param['bcc']			= $copiaOculta;
+		$param['teste']			= $teste;
+		$param['anexos']		= $anexos;
+		$param['embeddedImage'] = $embeddedImage;
+		$param['responderPara']	= $responderPara;
+		
+		agendaEmail($param);
 	}
 	
-	public function setCabecalhoPdf($html){
-	    $this->_cabecalhoPDF = $html;
+	public function copiaExcel($dir, $nomeArquivo){
+		$ret = false;
+		if(!empty(trim($this->_arqExcel)) && !empty(trim($dir)) && !empty(trim($nomeArquivo))){
+			if(substr($dir, -1) != '\\' && substr($dir, -1) != '/'){
+				$dir .= '/';
+			}
+			$ret = copy($this->_arqExcel, $dir.$nomeArquivo);
+		}
+		
+		return $ret;
+	}
+	
+	public function setFormTabela($param){
+	    $this->_formTabela = $param;
+	}
+	
+	public function setBotaoDropDownTitulo($drop){
+	    $this->_dropDown = $drop;
 	}
 }

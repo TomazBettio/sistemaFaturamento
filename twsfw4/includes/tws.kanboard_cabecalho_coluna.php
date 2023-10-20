@@ -10,7 +10,17 @@ class kanboard_cabecalho_coluna{
     private $_tarefasAbertas = 0;
     private $_tarefasFechadas = 0;
     private $_numTarefas = 0;
+    private $_tarefasVencidas = 0;
     private $_tarefas = array();
+    private $_linkFecharTodasTarefas;
+    private $_link_novs_tarefa;
+    private $_tabelaEntidades;
+    private $_btFecharTarefas;
+    private $_totalizarScore;
+    private $_scoreTotal;
+    private $_prefixoScore;
+    private $_iconeScore;
+    private $_mostrar_totalizador;
     
     public function __construct($param){
         $this->_id = $param['id'];
@@ -27,10 +37,48 @@ class kanboard_cabecalho_coluna{
         $this->_tarefas = $param['tarefas'];
         
         $this->_link_novs_tarefa = $param['link_nova'];
+        $this->_linkFecharTodasTarefas = $param['link_fechar'] ?? '';
+        
+        $this->_btFecharTarefas = $param['bt_fechar_tarefas'] ?? true;
+        
+        $this->_totalizarScore = $param['totalizar'] ?? false;
+        $this->_scoreTotal = $param['score_total'] ?? '';
+        $this->_prefixoScore = $param['prefixo_score'] ?? '';
+        $this->_iconeScore = $param['icone_score'] ?? '';
+        
+        $this->_mostrar_totalizador = $param['mostrar_totalizador'] ?? true;
+    }
+    
+    public function setTarefasVencidas($num_tarefas_vencidas){
+        $this->_tarefasVencidas = $num_tarefas_vencidas;
+    }
+    
+    public function getTarefasVencidas(){
+        return $this->_tarefasVencidas;
+    }
+    
+    static function getTituloColuna($id){
+        $ret = '';
+        $sql = "select etiqueta from kanboard_colunas where id = $id";
+        $rows = query($sql);
+        if(is_array($rows) && count($rows) > 0){
+            $ret = $rows[0]['etiqueta'];
+        }
+        return $ret;
+    }
+    
+    static function getCampoColuna($id, $campo){
+        $ret = '';
+        $sql = "select $campo from kanboard_colunas where id = $id";
+        $rows = query($sql);
+        if(is_array($rows) && count($rows) > 0){
+            $ret = $rows[0][$campo];
+        }
+        return $ret;
     }
     
     public function __toString(){
-        $ret = '<th class="board-column-header board-column-header-' . $this->_id . '"data-column-id="' . $this->_id . '"' . $this->montarStyleTh() . '>';
+        $ret = '<th nowrap class="board-column-header board-column-header-' . $this->_id . '"data-column-id="' . $this->_id . '"' . $this->montarStyleTh() . '>';
         $ret .= $this->gerarHtmlColapsado();
         $ret .= $this->geraHtmlExpandido();
         $ret .= '</th>';
@@ -100,7 +148,6 @@ class kanboard_cabecalho_coluna{
     padding: .5em 3px;
     border: 1px solid #eee;
     background: #fbfbfb;
-    width: 240px;
     box-sizing: initial;"';
     }
     
@@ -113,14 +160,21 @@ class kanboard_cabecalho_coluna{
     }
     
     private function gerarHtmlColapsado(){
-        $taks_count = 1; /*<?= t('Task count') ?>">*/ //era isso aqui
         $ret = '<div class="board-column-collapsed" ' . $this->gerarStyleDivHtmlColapsado() . '>
-                    <small class="board-column-header-task-count" title="' . $this->_numTarefas . '"' . $this->gerarStyleSmallHtmlColapsado() . '>
+                    <small class="board-column-header-task-count" title="' . $this->_tarefasAbertas . '"' . $this->gerarStyleSmallHtmlColapsado() . '>
                         <span id="task-number-column-' . $this->_id . '"' . $this->gerarStyleSpan1HtmlColapsado() . '>
-                            <span class="ui-helper-hidden-accessible" ' . $this->gerarStyleSpan2HtmlColapsado() . '>'. $this->_numTarefas . ' </span>' . $this->_numTarefas . '
+                            <span class="ui-helper-hidden-accessible" ' . $this->gerarStyleSpan2HtmlColapsado() . '>'. $this->_tarefasAbertas . ' </span>'
+                                . '<div style="text-align: center;">'   . badge(array('numeral' => $this->_tarefasAbertas, 'texto' => 'tarefa(s) aberta(s)')) . ($this->_tarefasVencidas > 0 ? badge(array('numeral' => $this->_tarefasVencidas, 'cor' => 'danger', 'texto' => 'tarefa(s) vencida(s)')) : '') . '</div>' . '
                         </span>
                     </small>
                 </div>';
+        /*
+        $ret = '<div class="board-column-collapsed">
+            <small class="board-column-header-task-count" title="<?= t('Task count') ?>">
+                <span id="task-number-column-<?= $column['id'] ?>"><span class="ui-helper-hidden-accessible"><?= t('Task count') ?> </span><?= $column['nb_tasks'] ?></span>
+            </small>
+        </div>';
+		*/
         return $ret;
     }
     
@@ -254,9 +308,9 @@ class kanboard_cabecalho_coluna{
     border-collapse: collapse;
     border-spacing: 0;
     text-align: left;
-    font-size: .8em;
+    font-size: initial;
     color: var(--color-light);
-    font-weight: 400;
+    font-weight: initial;
     box-sizing: initial;"';
     }
     
@@ -387,11 +441,23 @@ class kanboard_cabecalho_coluna{
     }
 
     private function geraHtmlExpandido(){
-        $ret = '<div class="board-column-expanded-header"' . $this->gerarStyleDivHtmlExpandido() . '>';
+        $ret = '<div class="board-column-expanded"' . $this->gerarStyleDivHtmlExpandido() . '>';
         $ret .= $this->geraBotaoNovaTarefa();
+        $ret .= '<div nowrap>';
         $ret .= $this->criarCore();
         $ret .= $this->montarTotalizadorTarefas();
+        $ret .= $this->montarTotalizadorTarefasVencidas();
         $ret .= '</div>';
+        $ret .= '</div>';
+        $ret .= $this->montarTotalizadorScore();
+        return $ret;
+    }
+    
+    private function montarTotalizadorScore(){
+        $ret = '';
+        if($this->_totalizarScore){
+            $ret = '<div style="font-size: initial;font-family:Helvetica,Arial,sans-serif,\'FontAwesome\';">' . $this->_iconeScore . $this->_prefixoScore . strval($this->_scoreTotal) . '</div>';
+        }
         return $ret;
     }
     
@@ -459,11 +525,39 @@ class kanboard_cabecalho_coluna{
     }
 
     private function geraBotaoNovaTarefa(){
-        $ret = '<div class="board-add-icon"' . $this->gerarStyleDivBotaoNovaTarefa() . '>';
-        $ret .= '<a href="' . $this->_link_novs_tarefa . '" title="Add a new task" ' . $this->gerarStyleABotaoNovaTarefa() . '>
-                    <i class="fa fa-plus fa-fw js-modal-large" aria-hidden="true"' . $this->gerarStyleIBotaoNovaTarefa() . '></i>
-                </a>';
-        $ret .= '</div>';
+        $ret = '';
+        if(!is_array($this->_link_novs_tarefa)){
+            if(!empty($this->_link_novs_tarefa)){
+                $ret = '    <div class="board-add-icon"' . $this->gerarStyleDivBotaoNovaTarefa() . '>';
+                $ret .= '       <a href="' . $this->_link_novs_tarefa . '" title="Add a new task" ' . $this->gerarStyleABotaoNovaTarefa() . '>
+                                    <i class="fa fa-plus fa-fw js-modal-medium" aria-hidden="true"' . $this->gerarStyleIBotaoNovaTarefa() . '></i>
+                                </a>
+                            </div>';
+            }
+        }
+        else{
+            $ret = '<span class="dropdown"' . $this->gerarStyleSpan2Core() . '>
+                        <a href="#" class="dropdown-menu"' . $this->gerarStyleACore() . '>
+                                <i class="fa fa-plus fa-fw js-modal-medium"' .$this->gerarStyleIBotaoNovaTarefa() . '></i>
+                        </a>
+                        ' . $this->criarMenuDropNovaTarefa() . '
+                    </span>';
+        }
+        return $ret;
+    }
+    
+    private function criarMenuDropNovaTarefa(){
+        $ret = '<ul ' . $this->gerarStyleUlMenuDrop() . '>';
+        foreach ($this->_link_novs_tarefa as $info_bt){
+            $param = array(
+                'link' => $info_bt[1],
+                'classe_a' => 'js-modal-medium',
+                'classe_i' => 'fa fa-plus fa-fw js-modal-confirm',
+                'etiqueta' => $info_bt[0],
+            );
+            $ret .= $this->criarBotaoMenuDrop($param);
+        }
+        $ret .= '</ul>';
         return $ret;
     }
     
@@ -665,9 +759,23 @@ class kanboard_cabecalho_coluna{
     
     
     private function montarTotalizadorTarefas(){
-        $ret = '<span><span class="ui-helper-hidden-accessible">Task count</span>' . $this->_numTarefas . '</span>';
+        //$ret = '<span><span class="ui-helper-hidden-accessible">Task count</span>' . $this->_numTarefas . '</span>';
+        $ret = '';
+        if($this->_mostrar_totalizador){
+            $ret .= '<span nowarp><span nowarp class="ui-helper-hidden-accessible">Task count</span>' . badge(array('numeral' => $this->_tarefasAbertas, 'texto' => 'tarefa(s) aberta(s)')) . '</span>';
+        }
         return $ret;
     }
+    
+    private function montarTotalizadorTarefasVencidas(){
+        //$ret = '<span><span class="ui-helper-hidden-accessible">Task count</span>' . $this->_numTarefas . '</span>';
+        $ret = '';
+        if($this->_tarefasVencidas > 0){
+            $ret .= '<span nowarp style="margin-left: 2px;"><span nowarp class="ui-helper-hidden-accessible">Task count</span>' . badge(array('numeral' => $this->_tarefasVencidas, 'cor' => 'danger', 'texto' => 'tarefa(s) vencida(s)')) . '</span>';
+        }
+        return $ret;
+    }
+    
 
     private function criarCore(){
         return '<span class="board-column-title"' . $this->gerarStyleSpan1Core() .'>
@@ -955,13 +1063,15 @@ class kanboard_cabecalho_coluna{
     private function criarMenuDrop(){
         $ret = '<ul ' . $this->gerarStyleUlMenuDrop() . '>';
         $ret .= $this->criarBotaoMenuDropMinimizar();
-        $param = array(
-            'link' => '/pirata/colunas.php',
-            'classe_a' => 'js-modal-confirm',
-            'classe_i' => 'fa fa-close fa-fw js-modal-confirm',
-            'etiqueta' => 'Close all tasks of this column',
-        );
-        $ret .= $this->criarBotaoMenuDrop($param);
+        if($this->_btFecharTarefas){
+            $param = array(
+                'link' => $this->_linkFecharTodasTarefas,
+                'classe_a' => 'js-modal-confirm',
+                'classe_i' => 'fa fa-close fa-fw js-modal-confirm',
+                'etiqueta' => 'Fechar todas as tarefas desta coluna',
+            );
+            $ret .= $this->criarBotaoMenuDrop($param);
+        }
         $ret .= '</ul>';
         return $ret;
     }
@@ -1026,13 +1136,14 @@ class kanboard_cabecalho_coluna{
     border-spacing: 0;
     cursor: pointer;
     -webkit-user-select: none;
-    word-wrap: break-word;
     font-size: .9em;
     margin: 0;
     padding: 0;
     display: none;
     box-sizing: initial;
-    position: absolute;"';
+    position: absolute;
+    background-color: #fff;
+    list-style-type: none;"';
         return $ret;
     }
     private function gerarStyleLiMenuDrop(){
@@ -1230,7 +1341,7 @@ class kanboard_cabecalho_coluna{
     private function criarBotaoMenuDropMinimizar(){
         return '<li' . $this->gerarStyleLiMenuDrop() .'>
                     <i class="fa fa-minus-square fa-fw"' . $this->gerarStyleIMinimizar() . '></i>
-                    <a href="#" class="board-toggle-column-view" data-column-id="' . $this->_id . '"' . $this->gerarStyleAMenuDrop() . '>Hide this column</a>
+                    <a href="' . getLink() .'index" class="board-toggle-column-view" data-column-id="' . $this->_id . '"' . $this->gerarStyleAMenuDrop() . '>Esconder esta coluna</a>
                 </li>';
     }
     private function gerarStyleIMinimizar(){
@@ -1300,7 +1411,11 @@ class kanboard_cabecalho_coluna{
     
     private function criarBotaoMenuDrop($param){
         $ret = '<li ' . $this->gerarStyleLiMenuDrop() . '>
-                    <a href="' . $param['link'] . '" class="' . $param['classe_a'] . '" title=""' . $this->gerarStyleAMenuDrop() . '>
+                    <a href="' . $param['link'] . '" ';
+        if($param['classe_a'] != ''){
+            $ret .= 'class="' . $param['classe_a'] . '" ';
+        }
+        $ret .= 'title=""' . $this->gerarStyleAMenuDrop() . '>
                         <i class="' . $param['classe_i'] . '" aria-hidden="true"' . $this->gerarStyleIMenuDrop() . '></i>
                         ' . $param['etiqueta'] . '
                     </a>                                

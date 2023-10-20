@@ -65,6 +65,9 @@ class processa_insumos{
 	//Razao social utilizada no nome dos arquivos
 	private $_arquivoRS;
 	
+	//Log de processamento
+	private $_log_processamento;
+	
 	public function __construct($dir, $cnpj){
 		$this->_path = $dir;
 		
@@ -96,74 +99,76 @@ class processa_insumos{
 		$this->_arquivoRS = str_replace('/', '_', $this->_arquivoRS);
 		$this->_arquivoRS = substr($this->_arquivoRS, 0, 15);
 		
+		$this->_log_processamento = 'insumos'.DIRECTORY_SEPARATOR.$cnpj;
+		
 	}
 	
 	public function processa($cnpj){
 		
 		//Cadastro de produtos
-		log::gravaLog($cnpj.'_log', 'Inicio - Cadastro Produtos');
+		log::gravaLog($this->_log_processamento, 'Inicio - Cadastro Produtos');
 		$P200 = new insumos_0200($this->_path, $this->_anos, 'efd');
 		$this->_P200 = $P200->getDados();
 		unset($P200);
-		log::gravaLog($cnpj.'_log', 'Final - Cadastro Produtos');
+		log::gravaLog($this->_log_processamento, 'Final - Cadastro Produtos');
 //print_r($this->_P200);die();
 
-		log::gravaLog($cnpj.'_log', 'Inicio - I075');
+		log::gravaLog($this->_log_processamento, 'Inicio - I075');
 		$I075 = new insumos_i075($this->_path, $this->_anos, 'ecd');
 		$this->_I075 = $I075->getDados();
 		unset($I075);
-		log::gravaLog($cnpj.'_log', 'Final - I075');
+		log::gravaLog($this->_log_processamento, 'Final - I075');
 //print_r($this->_I075);die();
 		
 //echo "I050\n";
-		log::gravaLog($cnpj.'_log', 'Inicio - I050');
+		log::gravaLog($this->_log_processamento, 'Inicio - I050');
 		$I050 = new insumos_i050($this->_path, $this->_anos, 'ecd');
 		$this->_planoContas = $I050->getDados();
 		unset($I050);
-		log::gravaLog($cnpj.'_log', 'Final - I050');
+		log::gravaLog($this->_log_processamento, 'Final - I050');
 //print_r($this->_planoContas);die();
 		
-		log::gravaLog($cnpj.'_log', 'Inicio - ajustaPlanoConta');
+		log::gravaLog($this->_log_processamento, 'Inicio - ajustaPlanoConta');
 		$this->ajustaPlanoConta();
-		log::gravaLog($cnpj.'_log', 'Final - ajustaPlanoConta');
+		log::gravaLog($this->_log_processamento, 'Final - ajustaPlanoConta');
 		
-		log::gravaLog($cnpj.'_log', 'Inicio - ajustaPlanoCod');
+		log::gravaLog($this->_log_processamento, 'Inicio - ajustaPlanoCod');
 		$this->ajustaPlanoCod();
-		log::gravaLog($cnpj.'_log', 'Final - ajustaPlanoCod');
+		log::gravaLog($this->_log_processamento, 'Final - ajustaPlanoCod');
 //print_r($this->_planoConta);
 
-		log::gravaLog($cnpj.'_log', 'Inicio - I250');
+		log::gravaLog($this->_log_processamento, 'Inicio - I250');
 		$I250 = new insumos_i250($this->_path, $this->_anos, 'ECD');
 		$this->_I250 = $I250->getDados();
 		unset($I250);
-		log::gravaLog($cnpj.'_log', 'Final - I250');
+		log::gravaLog($this->_log_processamento, 'Final - I250');
 //print_r($this->_I250);die();
 
-		log::gravaLog($cnpj.'_log', 'Inicio - getNotasEFD');
+		log::gravaLog($this->_log_processamento, 'Inicio - getNotasEFD');
 		$this->getNotasEFD();
-		log::gravaLog($cnpj.'_log', 'Final - getNotasEFD');
+		log::gravaLog($this->_log_processamento, 'Final - getNotasEFD');
 		
-		log::gravaLog($cnpj.'_log', 'Inicio - getBlocoF');
+		log::gravaLog($this->_log_processamento, 'Inicio - getBlocoF');
 		$this->getBlocoF();
-		log::gravaLog($cnpj.'_log', 'Final - getBlocoF');
+		log::gravaLog($this->_log_processamento, 'Final - getBlocoF');
 		
-		log::gravaLog($cnpj.'_log', 'Inicio - comparaNotas');
+		log::gravaLog($this->_log_processamento, 'Inicio - comparaNotas');
 		$this->_EFD_copia = $this->_EFD;
 		$this->comparaNotas();
-		log::gravaLog($cnpj.'_log', 'Final - comparaNotas');
+		log::gravaLog($this->_log_processamento, 'Final - comparaNotas');
 		
 		//Procura C500 pois podem estar em dias diferentes
-		log::gravaLog($cnpj.'_log', 'Inicio - procuraForaData');
+		log::gravaLog($this->_log_processamento, 'Inicio - procuraForaData');
 		$this->procuraForaData('C500');
 		unset($this->_EFD_copia);
-		log::gravaLog($cnpj.'_log', 'Final - procuraForaData');
+		log::gravaLog($this->_log_processamento, 'Final - procuraForaData');
 		
 //print_r($this->_EFD);
 //print_r($this->_resultado);die();
 		//echo "Vai gerar conferencia<br>\n";
-		log::gravaLog($cnpj.'_log', 'Inicio - geraExcelConferencia');
+		log::gravaLog($this->_log_processamento, 'Inicio - geraExcelConferencia');
 		$this->geraExcelConferencia();
-		log::gravaLog($cnpj.'_log', 'Final - geraExcelConferencia');
+		log::gravaLog($this->_log_processamento, 'Final - geraExcelConferencia');
 	}
 	
 	private function procuraForaData($bloco){

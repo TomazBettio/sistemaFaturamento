@@ -15,43 +15,52 @@ if(!defined('TWSiNet') || !TWSiNet) die('Esta nao e uma pagina de entrada valida
 class formfiltro01{
 	
 	// Nome dos programas (conjunto de perguntas)
-	private  $_programas = [];
+	protected  $_programas = [];
 	
 	// Perguntas
-	private $_perguntas = [];
+	protected $_perguntas = [];
 	
 	// Largura
-	private $_tamanho;
+	protected $_tamanho;
 	
 	// Indica a posição dos botoes
-	private $_posicaoBotoes;
+	protected $_posicaoBotoes;
 	
 	// Layout dos forms
-	private $_layout;
+	protected $_layout;
 	
 	// Titulo
-	private $_titulo;
+	protected $_titulo;
 	
 	// Modelo do painel BootStrap
-	private $_modelo;
+	protected $_modelo;
 	
 	// Link para enviar o formul�rio
-	private $_link;
+	protected $_link;
 	
 	// Nome normalizado
-	private $_nomePrograma;
+	protected $_nomePrograma;
 	
 	// Quantidade de colunas
-	private $_colunas;
+	protected $_colunas;
 	
 	// Retorno
-	private $_retorno;
+	protected $_retorno;
 	
 	// Indica se eh o primeiro carregamento do filtro
-	private $_primeiro;
+	protected $_primeiro;
 	
 	// Botões no titulo
-	private $_botaoTitulo = [];
+	protected $_botaoTitulo = [];
+	
+	//Imprime painel
+	protected $_imprimePainel;
+	
+	//Texto botão
+	protected $_botaoEnviarTexto;
+	
+	//Cor botao enviar
+	protected $_botaoEnviarCor;
 	
 	public function __construct($programas, $parametros){
 		if(!is_array($programas)){
@@ -64,12 +73,17 @@ class formfiltro01{
 		$this->_tamanho 			= verificaParametro($parametros, 'tamanho', 6);
 		$this->_colunas 			= verificaParametro($parametros, 'colunas', 2);
 		$this->_posicaoBotoes 		= verificaParametro($parametros, 'posicaoBotoes', FORMFILTRO_BT_POS);
-		$this->_layout 				= verificaParametro($parametros, 'layout', 'horizontal');
+		$this->_layout 				= verificaParametro($parametros, 'layout', 'basico');
 		$carragaPerguntas		 	= verificaParametro($parametros, 'carragaPerguntas', true);
 		$carragaRespostas 			= verificaParametro($parametros, 'carragaRespostas', true);
 		$this->_titulo 				= verificaParametro($parametros, 'titulo', FORMFILTRO_TITULO);
 		$this->_modelo 				= verificaParametro($parametros, 'cor', FORMFILTRO_COR);
 		$this->_link 				= verificaParametro($parametros, 'link','index.php?'.$_SERVER['QUERY_STRING']);
+		
+		$this->_imprimePainel		= verificaParametro($parametros, 'imprimePainel',true);
+		$this->_botaoEnviarCor		= verificaParametro($parametros, 'botaoCor',FORMFILTRO_BT_COR);
+		$this->_botaoEnviarTexto	= verificaParametro($parametros, 'botaoTexto',FORMFILTRO_BT_ENVIAR);
+		
 		
 		if($this->_tamanho > 12) $this->_tamanho = 12;
 		if($this->_tamanho < 0)  $this->_tamanho = 4;
@@ -101,7 +115,11 @@ class formfiltro01{
 		
 		$parametros = $this->imprimeParametros();
 		$cont = $this->imprimeEstrutura($parametros);
-		$filtro = $this->imprimePainel($cont);
+		if($this->_imprimePainel === false){
+			$filtro = $cont;
+		}else{
+			$filtro = $this->imprimePainel($cont);
+		}
 		
 		$ret .= '<form id="formFiltro" name="form1" method="post" action="'.$this->_link.'">'.$nl;
 		$token = geraStringAleatoria(30);
@@ -150,7 +168,7 @@ class formfiltro01{
 		return $ret;
 	}
 	
-	private function imprimePainel($conteudo){
+	protected function imprimePainel($conteudo){
 		$ret = '';
 		
 		$param = [];
@@ -167,15 +185,15 @@ class formfiltro01{
 		return $ret;
 	}
 	
-	private function imprimeEstrutura($filtro){
+	protected function imprimeEstrutura($filtro){
 		global $nl;
 		$ret = $nl;
 		
 		$param = [];
 		$param['bloco'] 	= true;
-		$param['texto'] 	= FORMFILTRO_BT_ENVIAR;
+		$param['texto'] 	= $this->_botaoEnviarTexto;
 		$param['type'] 		= 'submit';
-		$param['cor'] 		= FORMFILTRO_BT_COR;
+		$param['cor'] 		= $this->_botaoEnviarCor;
 		//$param['tamanho'] 	= 'pequeno';
 		$enviar = formbase01::formBotao($param);
 		
@@ -199,11 +217,12 @@ class formfiltro01{
 		return $ret;
 	}
 	
-	private function imprimeColuna($i,$pos){
+	protected function imprimeColuna($i,$pos){
 		global $nl;
 		$param = [];
 		$ret = '';
-		//echo "imprimeparametro $i $pos <br>";
+		$formLayoutAtual = getAppVar('formBase_layout');
+		formBase01::setLayout($this->_layout);
 		if(count($this->_perguntas) > ($i * $this->_colunas + $pos)){
 			$pergunta = $this->_perguntas[$i * $this->_colunas + $pos];
 			
@@ -215,7 +234,7 @@ class formfiltro01{
 				//@todo: implementar função para inicializar
 			}
 			if($pergunta['tabela'] != ''){
-				$form = $this->montaSelect($pergunta['tabela'], $pergunta['variavel'],$selecionado);
+				$form = $this->montaSelect($pergunta['tabela'], $pergunta['variavel'],$selecionado, $pergunta['tipo']);
 			}elseif($pergunta['funcaodados'] != ''){
 				$form = $this->montaSelect2($pergunta['funcaodados'], $pergunta['variavel'], $pergunta['tipo'],$selecionado);
 			}elseif($pergunta['tipo'] == "D"){
@@ -248,33 +267,39 @@ class formfiltro01{
 		}
 		$ret .= '</div>'.$nl;
 		
+		putAppVar('formBase_layout', $formLayoutAtual);
+		
 		return $ret;
 	}
 	
 	//----------------------------------------------------------- GET ---------------------------------------------
-	private function getPerguntas(){
+	protected function getPerguntas(){
 		if(count($this->_programas) > 0){
 			foreach($this->_programas as $programa){
-				$sql = "SELECT * FROM sys004 WHERE programa = '$programa' ORDER BY ordem";
+				if(!empty($programa)){
+					$sql = "SELECT * FROM sys004 WHERE programa = '$programa' ORDER BY ordem";
+					$rows = query($sql);
 
-				$rows = query($sql);
-				if(count($rows) > 0){
-					foreach ($rows as $row){
-						$i = count($this->_perguntas);
-						$this->_perguntas[$i]['programa']		= $row['programa'];
-						$this->_perguntas[$i]['ordem']			= $row['ordem'];
-						$this->_perguntas[$i]['pergunta']		= $row['pergunta'].":&nbsp;";
-						$this->_perguntas[$i]['variavel']		= $row['variavel'];
-						$this->_perguntas[$i]['tipo']			= $row['tipo'];
-						$this->_perguntas[$i]['tamanho']		= $row['tamanho'];
-						$this->_perguntas[$i]['casadec']		= $row['casadec'];
-						$this->_perguntas[$i]['validador']		= $row['validador'];
-						$this->_perguntas[$i]['tabela']			= $row['tabela'];
-						$this->_perguntas[$i]['funcaodados']	= $row['funcaodados'];
-						$this->_perguntas[$i]['help']			= $row['help'];
-						$this->_perguntas[$i]['inicializador']	= $row['inicializador'];
-						$this->_perguntas[$i]['inicFunc']		= $row['inicFunc'];
-						$this->_perguntas[$i]['opcoes']			= $row['opcoes'];
+					if(count($rows) > 0){
+						foreach ($rows as $row){
+							$temp = [];
+							$temp['programa']		= $row['programa'];
+							$temp['ordem']			= $row['ordem'];
+							$temp['pergunta']		= $row['pergunta'].":&nbsp;";
+							$temp['variavel']		= $row['variavel'];
+							$temp['tipo']			= $row['tipo'];
+							$temp['tamanho']		= $row['tamanho'];
+							$temp['casadec']		= $row['casadec'];
+							$temp['validador']		= $row['validador'];
+							$temp['tabela']			= $row['tabela'];
+							$temp['funcaodados']	= $row['funcaodados'];
+							$temp['help']			= $row['help'];
+							$temp['inicializador']	= $row['inicializador'];
+							$temp['inicFunc']		= $row['inicFunc'];
+							$temp['opcoes']			= $row['opcoes'];
+							
+							$this->_perguntas[] = $temp;
+						}
 					}
 				}
 			}
@@ -287,7 +312,7 @@ class formfiltro01{
 		return $this->getChaveValor();
 	}
 	
-	private function getChaveValor(){
+	protected function getChaveValor(){
 		$ret = [];
 		if(count($this->_perguntas) > 0){
 			foreach ($this->_perguntas as $param){
@@ -317,7 +342,7 @@ class formfiltro01{
 	 * Se existir retorna as mesmas e grava
 	 *
 	 */
-	private function getRetornos(){
+	protected function getRetornos(){
 		$ret = getParam($_POST, $this->_nomePrograma);
 		//Para possibilitar utilizar a clase mesmo fora do framework
 		if(is_array($ret) && count($ret) > 0){
@@ -331,7 +356,7 @@ class formfiltro01{
 		return $ret;
 	}
 	
-	private function getValoresArmazenados(){
+	protected function getValoresArmazenados(){
 		$ret = [];
 		$usuario = getUsuario();
 		
@@ -344,12 +369,12 @@ class formfiltro01{
 		return $ret;
 	}
 	
-	private function getNomeCampo($campo){
+	protected function getNomeCampo($campo){
 		return $this->_nomePrograma."[".$campo."]";
 	}
 	
 	
-	private function getID($campo){
+	protected function getID($campo){
 		return $this->_nomePrograma.$campo;
 	}
 	
@@ -471,7 +496,7 @@ class formfiltro01{
 		}
 	}
 	
-	private function setRespostasBD($respostas){
+	protected function setRespostasBD($respostas){
 		$usuario = getUsuario();
 		$serial = serialize($respostas);
 		$sql = "DELETE FROM sys044 WHERE programa = '".$this->_programas[0]."' AND usuario = '$usuario'";
@@ -489,17 +514,16 @@ class formfiltro01{
 	/*
 	 * Retira do nome do programa caracteres que não podem ser utilizados em nome de variáveis
 	 */
-	private function normalizaPrograma(){
+	protected function normalizaPrograma(){
 		$troca = [',','.'];
 		$this->_nomePrograma = str_replace($troca, "_", $this->_programas[0]);
 		return;
 	}
 	
 	/*
-	 *  $todos - Indica se deve incluir uma op��o em branco
 	 *  #TODO: Fazer isto direito (incluir na tabela de parametros esta possibilidade)
 	 */
-	private function montaSelect($tabela, $variavel,$selecionado, $todos = ''){
+	protected function montaSelect($tabela, $variavel,$selecionado, $tipoForm){
 		$dados = array();
 		$i = 0;
 		$dados[$i][0] = "";
@@ -527,12 +551,14 @@ class formfiltro01{
 		$param['nome']		= $variavel;
 		$param['valor']		= $selecionado;
 		$param['campos']	= $dados;
-		
+		if($tipoForm == 'AM'){
+			$param['multi'] = true;
+		}
 		$ret = formbase01::formSelect($param);
 		return $ret;
 	}
 
-	private function montaData($variavel, $valor){
+	protected function montaData($variavel, $valor){
 		$campo = $this->getNomeCampo($variavel);
 		$ret = '';
 		
@@ -548,7 +574,7 @@ class formfiltro01{
 		return $ret;
 	}
 	
-	private function montaSelect2($funcao, $variavel, $tipoForm, $selecionado,$tipo = 1){
+	protected function montaSelect2($funcao, $variavel, $tipoForm, $selecionado,$tipo = 1){
 		if($tipo == 1){
 			if(strpos($funcao, ';') === false){
 				$funcao .= ';';
@@ -581,7 +607,7 @@ class formfiltro01{
 		return $ret;
 	}
 	
-	private	function getOpcoes($opcoes){
+	protected	function getOpcoes($opcoes){
 		$ret = array();
 		$e = 0;
 		if(is_array($opcoes)){
@@ -602,7 +628,7 @@ class formfiltro01{
 		return $ret;
 	}
 	
-	private function retornaOpcoesSelecionada($selecionado, $opcoes){
+	protected function retornaOpcoesSelecionada($selecionado, $opcoes){
 		$ret = '';
 		
 		$opcs = explode(";", $opcoes);

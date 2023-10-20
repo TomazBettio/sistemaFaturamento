@@ -40,8 +40,12 @@ class rest_cliente01{
 	//POST data (body)
 	private $_postData = [];
 	
-	function __construct($url){
+	//substituir caracteres na query pelos originais
+	private $_substituir_char_query;
+	
+	function __construct($url, $substituir_caracteres_query = false){
 		$this->_endPoint = $url;
+		$this->_substituir_char_query = $substituir_caracteres_query;
 	}
 	
 	public function setAutenticacao($usuario, $senha){
@@ -76,7 +80,7 @@ class rest_cliente01{
 		$this->_parametros = $parametros;
 
 		if($debug){
-			echo "<br>\nResurce: ".$this->_resource."<br>\n";
+			echo "<br>\nResource: ".$this->_resource."<br>\n";
 			echo "<br>\nMetodo: ".$this->_metodo."<br>\n";
 			echo "<br>\nParametros: "; 
 			print_r($this->_parametros);
@@ -94,7 +98,11 @@ class rest_cliente01{
 		$url = $this->_endPoint;
 		$url .= $this->_resource;
 		if(is_array($this->_parametros) && count($this->_parametros) > 0 && $this->_metodo != 'POST' && $this->_metodo != 'PATCH'){
-			$url .= '?'.http_build_query($this->_parametros);
+		    $temp = http_build_query($this->_parametros);
+			if($this->_substituir_char_query){
+			    $temp = rawurldecode($temp);
+			}
+			$url .= '?'.$temp;
 		}
 		
 		$ch = curl_init();
@@ -103,6 +111,9 @@ class rest_cliente01{
 		if($debug){
 			echo "URL: $url<br>\n";
 			echo "Método: ".$this->_metodo." <br>\n";
+			if(!empty($this->_postData)){
+			    echo "Post: " . $this->_postData ." <br>\n";
+			}
 			curl_setopt($ch, CURLOPT_VERBOSE, true);
 			$verbose = fopen($config['debugPath'].'REST_'.$this->_metodo.'.log'	, 'w+');
 			curl_setopt($ch, CURLOPT_STDERR, $verbose);
@@ -202,7 +213,6 @@ class rest_cliente01{
 				break;
 		}
 		
-		log::gravaLog('tudo_rest', 'teste');
 		log::gravaLog('tudo_rest', $res);
 		log::gravaLog('tudo_rest',print_r($this->_postData,true));
 		
@@ -225,7 +235,8 @@ class rest_cliente01{
 		}else{
 		    log::gravaLog('sucesso_rest', $res);
 		    log::gravaLog('sucesso_rest',print_r($this->_postData,true));
-			return json_decode($res, true);
+		    $json_decodificado = json_decode($res, true); //caso a resposta não seja um json $json_decodificado vai receber o valor NULL
+		    return $json_decodificado ?? $res;  //retorna $res caso $json_decodificado == NULL
 		}
 	}
 	

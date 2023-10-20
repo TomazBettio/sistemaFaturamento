@@ -11,6 +11,7 @@
 
 if(!defined('TWSiNet') || !TWSiNet) die('Esta nao e uma pagina de entrada valida!');
 
+#[\AllowDynamicProperties]
 class tabela01{
 	
 	//ID da tabela
@@ -28,6 +29,10 @@ class tabela01{
 	//Ações a serem realizadas (botães nas linhas)
 	private $_acoes = [];
 	
+	//Acoes de linhas com multiplas opcoes
+	private $_acoesDropdown = [];
+	
+	
 	//Indica se vai ocorrer quebra de texto dentro das celulas
 	private $_nowrap;
 	
@@ -36,6 +41,9 @@ class tabela01{
 	
 	//Indica que o browser estã rodando em modo automãtico (provavelmente vai ser enviado por email)
 	private $_auto;
+	
+	//Indica se deve imprimir o cabecalho da tabela ou direto os dados
+	private $_impCab = true;
 	
 	// Campos
 	private $_campos = [];
@@ -79,6 +87,9 @@ class tabela01{
 	//indica se a tabela deve ser printada como um cubo do rm
 	private $_cubo;
 	
+	//Acoes de linhas a serem passadas por parametro
+	private $_addAcoes = [];
+	
 	//-------------------------------------------------------------------------- Selecao de linhas
 	//Seleciona (primeira coluna indicando que a linha possa ser selecionada)
 	private $_seleciona;		// Indica que sera utilizado o processo
@@ -98,6 +109,7 @@ class tabela01{
 	private $_ordenacao;	// Indica se deve ter ordenação nas colunas
 	private $_filtro;		//Indica se vai utilizar filtro
 	private $_info;			//Indica se vai mostrar informacoes
+	private $_scrollCollapse; //Permitir que a tabela reduza em altura quando um número limitado de linhas é mostrado
 	
 	//-------------------------------------------------------------------------- Valores padrães
 	private $_tamPadraoColuna = 100;
@@ -140,12 +152,22 @@ class tabela01{
 		
 		$this->_imprimeZero = $param['imprimeZero'] ?? true;
 		
+		$this->_addAcoes = $param['acoes'] ?? [];
+		if(count($this->_addAcoes) > 0){
+			foreach ($this->_addAcoes as $acao){
+				$this->addAcao($acao);
+			}
+		}
+		
+		$this->_impCab			= $param['imprimeCabecalho'] ?? true;
+
 		//Data Table
 		//Por padrão tabela com scroll
-		$this->_scroll 		= $param['scroll'] ?? true;
-		$this->_scrollX 	= $param['scrollX'] ?? false;
-		$this->_scrollY 	= $param['scrollY'] ?? false;
-		$this->_ordenacao 	= $param['ordenacao'] ?? true;
+		$this->_scroll 			= $param['scroll'] ?? true;
+		$this->_scrollX 		= $param['scrollX'] ?? false;
+		$this->_scrollY 		= $param['scrollY'] ?? false;
+		$this->_ordenacao 		= $param['ordenacao'] ?? true;
+		$this->_scrollCollapse	= $param['scrollCollapse'] ?? true;
 		//Por padrão tabela sem paginação
 		$this->_paginacao 	= $param['paginacao'] ?? false;
 		$this->_filtro 		= $param['filtro'] ?? true;
@@ -163,6 +185,7 @@ class tabela01{
 	public function __toString(){
 		$ret = '';
 		$this->iniTemplateDataTable();
+		
 		
 		if($this->_auto){
 			$ret = $this->geraAutomatico();
@@ -188,13 +211,6 @@ class tabela01{
 				}
 			}
 			$ret = addCard($param);
-		}else{
-			if(count($this->_botaoTitulo) > 0){
-				foreach ($this->_botaoTitulo as $botao){
-					addBreadcrumbPrincipal($botao);
-				}
-			}
-			
 		}
 		
 		return $ret;
@@ -212,11 +228,13 @@ class tabela01{
 			$tab->addTitulo($this->_titulo);
 		}
 		
-		$tab->abreTR(true);
-		foreach ($this->_cab as $chave => $etiq){
-			$tab->abreTH($etiq,1);
+		if($this->_impCab){
+			$tab->abreTR(true);
+			foreach ($this->_cab as $chave => $etiq){
+				$tab->abreTH($etiq,1);
+			}
+			$tab->fechaTR();
 		}
-		$tab->fechaTR();
 		
 		$linhas = count($this->_dados);
 		$colunas = count($this->_cab);
@@ -273,6 +291,17 @@ class tabela01{
 							$valorCampo = '';
 						}
 						break;
+					case "RS":
+					    //Valor em reais
+					    if($this->_imprimeZero || $valorCampo != '' ){
+					        if($valorCampo == "" || !$valorCampo) $valorCampo = 0;
+					        if(!preg_match("/([a-zA-Z])/", $valorCampo ) ){
+					            $valorCampo = 'R$ ' . number_format($valorCampo, 2, ',', '.');
+					        }
+					    }else{
+					        $valorCampo = '';
+					    }
+					    break;
 				}
 				
 				if($valorCampo == ''){
@@ -306,7 +335,9 @@ class tabela01{
 		
 		$ret .= $nl.'<table id="'.$this->_id.'" class="table table-sm '.$classeTable.'"  width="'.$this->_width.'">'.$nl;
 		
-		$ret .= $this->impCabecalho();
+		if($this->_impCab){
+			$ret .= $this->impCabecalho();
+		}
 		if($this->_cubo){
 		    $ret .= $this->impDadosCubo();
 		}
@@ -328,24 +359,12 @@ class tabela01{
 		$ret = '';
 		
 		//Conta a quantidade de ações a direita e a esquerda
-		$acoes_i = 0;
-		$acoes_f = 0;
 		$quant = count($this->_acoes);
+		$quantDD = count($this->_acoesDropdown);
 
-		if($quant > 0){
-			foreach ($this->_acoes as $acoes){
-				if($acoes['pos'] == 'I'){
-					$acoes_i++;
-				}
-				if($acoes['pos'] == 'F'){
-					$acoes_f++;
-				}
-			}
-		}
-		
 		$ret .= '<thead>'.$nl;
-		
 		$ret .= '	<tr>'.$nl;
+
 		//Acoes no inicio da tabela
 		if(!$this->_cubo){
     		if($quant > 0){
@@ -356,20 +375,41 @@ class tabela01{
     				}
     			}
     		}
+    		if($quantDD > 0){
+    			foreach ($this->_acoesDropdown as $acoes){
+    				if($acoes['pos'] == 'I'){
+    					$tam = ' width="'.$acoes['width'].'"';
+    					$ret .= '		<th'.$tam.'>&nbsp;</th>'.$nl;
+    				}
+    			}
+    		}
 		}
+		
+		//Colunas da tabela
 		if(count($this->_cab) > 0){
 			foreach ($this->_cab as $chave => $etiq){
-				$w = '';
-				if($this->_cabWidth[$chave] > 0){
-					$w = ' width="'.$this->_cabWidth[$chave].'"';
-				}
-				$ret .= '		<th'.$w.'>'.$etiq.'</th>'.$nl;
+			    if($this->_cabTipo[$chave] != 'HD'){
+    				$w = '';
+    				if($this->_cabWidth[$chave] > 0){
+    					$w = ' width="'.$this->_cabWidth[$chave].'"';
+    				}
+    				$ret .= '		<th'.$w.'>'.$etiq.'</th>'.$nl;
+			    }
 			}
 		}
+
 		//Acoes no final da tabela
 		if(!$this->_cubo){
     		if($quant > 0){
     			foreach ($this->_acoes as $acoes){
+    				if($acoes['pos'] == 'F'){
+    					$tam = ' width="'.$acoes['width'].'"';
+    					$ret .= '		<th'.$tam.'>&nbsp;</th>'.$nl;
+    				}
+    			}
+    		}
+    		if($quantDD > 0){
+    			foreach ($this->_acoesDropdown as $acoes){
     				if($acoes['pos'] == 'F'){
     					$tam = ' width="'.$acoes['width'].'"';
     					$ret .= '		<th'.$tam.'>&nbsp;</th>'.$nl;
@@ -389,6 +429,7 @@ class tabela01{
 		$ret = '';
 		
 		$quant = count($this->_acoes);
+		$quantDD = count($this->_acoesDropdown);
 		$linhas = count($this->_dados);
 		$ret .= '	<tbody>'.$nl;
 		for ($l=0;$l<$linhas;$l++){
@@ -405,109 +446,134 @@ class tabela01{
 						$ret .= $this->impAcoes($a, $l);
 				}
 			}
+			if($quantDD > 0){
+				foreach ($this->_acoesDropdown as $a => $acoes){
+					if($acoes['pos'] == 'I')
+						$ret .= $this->impAcoesDropdown($a, $l);
+				}
+			}
 			foreach ($this->_cab as $i => $cab){
 				$sort = '';
 				$tipo = $this->_cabTipo[$i];
-				$valorCampo = isset($this->_dados[$l][$this->_campos[$i]]) ? $this->_dados[$l][$this->_campos[$i]] : '';
-				switch ($tipo){
-					case "V":
-						//Valor (duas casas decimais)
-						if($valorCampo == "" || !$valorCampo){
-							if($this->_imprimeZero){
-								$valorCampo = 0;
-							}else{
-								$valorCampo = '';
-							}
-						}
-						if(!preg_match("/([a-zA-Z])/", $valorCampo ) && !empty($valorCampo)){
-							$valorCampo = number_format($valorCampo, 2, ',', '.');
-						}
-						break;
-					case "V4":
-						//Valor (quatro casas decimais)
-						if($valorCampo == "" || !$valorCampo){
-							if($this->_imprimeZero){
-								$valorCampo = 0;
-							}else{
-								$valorCampo = '';
-							}
-						}
-						if(!preg_match("/([a-zA-Z])/", $valorCampo && !empty($valorCampo)) ){
-							$valorCampo = number_format($valorCampo, 4, ',', '.');
-						}
-						break;
-					case "N":
-						//Valor inteiro
-						if($valorCampo == "" || !$valorCampo){
-							if($this->_imprimeZero){
-								$valorCampo = 0;
-							}else{
-								$valorCampo = '';
-							}
-						}
-						if($valorCampo == 0 && !$this->_imprimeZero){
-							$valorCampo = '';
-						}
-						if(!preg_match("/([a-zA-Z])/", $valorCampo)  && !empty(trim($valorCampo)) ){
-							$valorCampo = number_format($valorCampo, 0, ',', '.');
-						}
-						break;
-					case "T":
-						//Valor inteiro
-						$valorCampo = ajustaCaractHTML($valorCampo);
-						break;
-					case "D":
-						//Data
-						$sort = 'data-sort="'.$valorCampo.'"';
-						if($valorCampo != '' && $valorCampo != 0){
-							$valorCampo = datas::dataS2D($valorCampo);
-						}
-						break;
+				if($tipo != 'HD'){
+    				$valorCampo = isset($this->_dados[$l][$this->_campos[$i]]) ? $this->_dados[$l][$this->_campos[$i]] : '';
+    				switch ($tipo){
+    					case "V":
+    						//Valor (duas casas decimais)
+    						if($valorCampo == "" || !$valorCampo){
+    							if($this->_imprimeZero){
+    								$valorCampo = 0;
+    							}else{
+    								$valorCampo = '';
+    							}
+    						}
+    						if(!preg_match("/([a-zA-Z])/", $valorCampo ) && !empty($valorCampo)){
+    							$valorCampo = number_format($valorCampo, 2, ',', '.');
+    						}
+    						break;
+    					case "V4":
+    						//Valor (quatro casas decimais)
+    						if($valorCampo == "" || !$valorCampo){
+    							if($this->_imprimeZero){
+    								$valorCampo = 0;
+    							}else{
+    								$valorCampo = '';
+    							}
+    						}
+    						if(!preg_match("/([a-zA-Z])/", $valorCampo && !empty($valorCampo)) ){
+    							$valorCampo = number_format($valorCampo, 4, ',', '.');
+    						}
+    						break;
+    					case "N":
+    						//Valor inteiro
+    						if($valorCampo == "" || !$valorCampo){
+    							if($this->_imprimeZero){
+    								$valorCampo = 0;
+    							}else{
+    								$valorCampo = '';
+    							}
+    						}
+    						if($valorCampo == 0 && !$this->_imprimeZero){
+    							$valorCampo = '';
+    						}
+    						if(!preg_match("/([a-zA-Z])/", $valorCampo)  && !empty(trim($valorCampo)) ){
+    							$valorCampo = number_format($valorCampo, 0, ',', '.');
+    						}
+    						break;
+    					
+    					case "D":
+    						//Data
+    						$sort = 'data-sort="'.$valorCampo.'"';
+    						if($valorCampo != '' && $valorCampo != 0){
+    							$valorCampo = datas::dataS2D($valorCampo);
+    						}
+    						break;
+    					case "P":
+    					    //Percentual
+    					    $sort = 'data-sort="'.$valorCampo.'"'; 					    
+    					    if($valorCampo == "" || !$valorCampo){
+    					        $valorCampo = 0;
+    					    }
+    					    if(!preg_match("/([a-zA-Z])/", $valorCampo ) && !empty($valorCampo)){
+    					        if(floatval($valorCampo) > 0){
+    					           $valorCampo = number_format($valorCampo, 2, ',', '.') . '%';
+    					        }
+    					        else{
+    					            $valorCampo = '0%';
+    					        }
+    					    }
+    					    break;
+    					case "T":
+    					default:
+    					    //Texto
+    					    $valorCampo = ajustaCaractHTML($valorCampo);
+    					    break;
+    				}
+    				switch (strtoupper($this->_cabPosicao[$i])) {
+    					case "D":
+    						$pos = 'right';
+    						break;
+    					case "direita":
+    						$pos = 'right';
+    						break;
+    					case "C":
+    						$pos = 'center';
+    						break;
+    					case "centro":
+    						$pos = 'center';
+    						break;
+    					case "J":
+    						$pos = 'justify';
+    						break;
+    					case "justificado":
+    						$pos = 'justify';
+    						break;
+    					default:
+    						$pos = 'left';
+    						break;
+    				}
+    				$w = '';
+    				if($this->_cabWidth[$i] > 0){
+    					$w = ' width="'.$this->_cabWidth[$i].'"';
+    				}
+    				
+    				$cor = '';
+    				if(!empty($this->_colunaCor) && isset($this->_cores[$this->_dados[$l][$this->_colunaCor]])){
+    					$cor = "bgcolor='".$this->_cores[$this->_dados[$l][$this->_colunaCor]]."'";
+    				}elseif(isset($this->_coresColunas[$i])){
+    					$cor = "bgcolor='".$this->_coresColunas[$i]."'";
+    				}
+    				
+    				//Se a coluna tiver uma cor especifica condicional
+    				//$this->_coresColunasIf[$coluna] = $controle;
+    				//$this->_coresColunasCondicional[$coluna][$key] = $cor;
+    				
+    				if(isset($this->_coresColunasIf[$i]) && isset($this->_coresColunasCondicional[$i][$this->_dados[$l][$this->_coresColunasIf[$i]]])){
+    					$cor = "bgcolor='".$this->_coresColunasCondicional[$i][$this->_dados[$l][$this->_coresColunasIf[$i]]]."'";
+    				}
+    				
+    				$ret .= '		<td align="'.$pos.'"'.$w.' '.$this->_nowrap.' '.$cor.' '.$sort.'>'.$valorCampo.'</td>'.$nl;
 				}
-				switch (strtoupper($this->_cabPosicao[$i])) {
-					case "D":
-						$pos = 'right';
-						break;
-					case "direita":
-						$pos = 'right';
-						break;
-					case "C":
-						$pos = 'center';
-						break;
-					case "centro":
-						$pos = 'center';
-						break;
-					case "J":
-						$pos = 'justify';
-						break;
-					case "justificado":
-						$pos = 'justify';
-						break;
-					default:
-						$pos = 'left';
-						break;
-				}
-				$w = '';
-				if($this->_cabWidth[$i] > 0){
-					$w = ' width="'.$this->_cabWidth[$i].'"';
-				}
-				
-				$cor = '';
-				if(!empty($this->_colunaCor) && isset($this->_cores[$this->_dados[$l][$this->_colunaCor]])){
-					$cor = "bgcolor='".$this->_cores[$this->_dados[$l][$this->_colunaCor]]."'";
-				}elseif(isset($this->_coresColunas[$i])){
-					$cor = "bgcolor='".$this->_coresColunas[$i]."'";
-				}
-				
-				//Se a coluna tiver uma cor especifica condicional
-				//$this->_coresColunasIf[$coluna] = $controle;
-				//$this->_coresColunasCondicional[$coluna][$key] = $cor;
-				
-				if(isset($this->_coresColunasIf[$i]) && isset($this->_coresColunasCondicional[$i][$this->_dados[$l][$this->_coresColunasIf[$i]]])){
-					$cor = "bgcolor='".$this->_coresColunasCondicional[$i][$this->_dados[$l][$this->_coresColunasIf[$i]]]."'";
-				}
-				
-				$ret .= '		<td align="'.$pos.'"'.$w.' '.$this->_nowrap.' '.$cor.' '.$sort.'>'.$valorCampo.'</td>'.$nl;
 			}
 			//Acoes no fim da tabela
 			if($quant > 0){
@@ -516,6 +582,13 @@ class tabela01{
 						$ret .= $this->impAcoes($a, $l);
 				}
 			}
+			if($quantDD > 0){
+				foreach ($this->_acoesDropdown as $a => $acoes){
+					if($acoes['pos'] == 'F')
+						$ret .= $this->impAcoesDropdown($a, $l);
+				}
+			}
+			
 			$ret .= '	</tr>'.$nl;
 		}
 		$ret .= '	</tbody>'.$nl;
@@ -532,10 +605,12 @@ class tabela01{
 			
 			if(!empty($acao['link'])){
 				if(strpos($acao['link'], '{ID}') !== false){
-					$url = str_replace('{ID}' ,$this->_dados[$l][$acao['coluna']],$acao['link']);
-					if(strpos($url, '{COLUNA:') !== false){
-						$campo = $this->separaCampo($url);
-						$url = str_replace("{COLUNA:$campo}" ,"'".$this->_dados[$l][$campo]."'",$url);
+					$url = str_replace('{ID}' ,$this->_dados[$l][$acao['coluna']],$acao['link']);					
+					$offset = 0;
+					while($offset=strpos($url, '{COLUNA:',$offset) !== false){
+					    $campo = $this->separaCampo($url);
+					    $url = str_replace("{COLUNA:$campo}" ,"'".$this->_dados[$l][$campo]."'",$url);
+					    $offset++;
 					}
 					$acao['url'] = $url;
 				}else{
@@ -575,6 +650,78 @@ class tabela01{
 			$ret = "&nbsp;";
 		}
 		$tam = ' width="'.$acao['width'].'"';
+		$cor = '';
+		if(!empty($this->_colunaCor) && isset($this->_cores[$this->_dados[$l][$this->_campos[$this->_colunaCor]]])){
+			$cor = "bgcolor='".$this->_cores[$this->_dados[$l][$this->_campos[$this->_colunaCor]]]."'";
+		}
+		$ret = '		<td align="center" '.$tam.' '.$cor.'>'.$ret.'</td>'.$nl;
+		
+		return $ret;
+	}
+	
+	private function impAcoesDropdown($a,$l){
+		global $nl;
+		$ret = '';
+		$acoes = $this->_acoesDropdown[$a];
+	
+		$param = [];
+		$param['titulo'] = $this->_acoesDropdown[$a]['titulo'];
+		$param['cor'] = $this->_acoesDropdown[$a]['cor'];
+		
+		if(count($acoes['opcoes']) > 0){
+			foreach ($acoes['opcoes'] as $acao){
+				//Se nao foi indicado condicao para mostrar a acao, ou a condicao e positiva, imprime a acao
+				if($acao['flag'] == '' || $this->_dados[$l][$acao['flag']] === true){
+					if(!empty($acao['link'])){
+						if(strpos($acao['link'], '{ID}') !== false){
+							$url = str_replace('{ID}' ,$this->_dados[$l][$acao['coluna']],$acao['link']);
+							$offset = 0;
+							while($offset=strpos($url, '{COLUNA:',$offset) !== false){
+								$campo = $this->separaCampo($url);
+								$url = str_replace("{COLUNA:$campo}" ,"'".$this->_dados[$l][$campo]."'",$url);
+								$offset++;
+							}
+							$acao['url'] = $url;
+						}else{
+							$colunas = [];
+							if(!is_array($acao['coluna'])){
+								$colunas[] = $this->_dados[$l][$acao['coluna']];
+							}else{
+								foreach ($acao['coluna'] as $col){
+									$colunas[] = $this->_dados[$l][$col];
+								}
+							}
+							$url = $acao["link"].implode('|', $colunas);
+							$acao['url'] = $url;
+						}
+					}
+					
+					if(!empty($acao['onclick'])){
+						$url = $acao['onclick'];
+						if(strpos($url, '{COLUNA:') !== false){
+							$campo = $this->separaCampo($url);
+							$url = str_replace("{COLUNA:$campo}" ,$this->_dados[$l][$campo],$url);
+						}
+						$acao['onclick'] = $url;
+						$acao['tipo'] = 'botao';
+					}
+					
+					if(isset($acao['funcao']) && !empty($acao['funcao'])){
+						eval('$d = '.$acao['funcao']."('".$this->_dados[$l][$campo]."');");
+						$acao['url'] = $acao['link'].$d;
+					}
+					
+					if(!empty($acao['flag_habilitado']) && $this->_dados[$l][$acao['flag_habilitado']] === false){
+					    $acao['habilitado'] = false;
+					}
+					
+					$param['opcoes'][] = $acao;
+				}
+			}
+			$ret = formbase01::formBotaoDropdown($param);
+		}
+
+		$tam = ' width="'.$this->_acoesDropdown[$a]['width'].'"';
 		$cor = '';
 		if(!empty($this->_colunaCor) && isset($this->_cores[$this->_dados[$l][$this->_campos[$this->_colunaCor]]])){
 			$cor = "bgcolor='".$this->_cores[$this->_dados[$l][$this->_campos[$this->_colunaCor]]]."'";
@@ -631,7 +778,7 @@ class tabela01{
 	 * 					[pos]		posicao (Inicio, Fim)
 	 * 					[funcao]	Funcao a ser executada nos valores
 	 */
-	function addAcao($param){
+	public function addAcao($param){
 		if(is_array($param)){
 			$temp = [];
 			$temp['texto'] 		= $param['texto'] ?? '';
@@ -653,6 +800,32 @@ class tabela01{
 
 			$this->_acoes[] = $temp;
 			$this->getTamanhoTotalTabela();
+		}
+	}
+	
+	public function addAcaoDropdown($param){
+		if(is_array($param) && isset($param['titulo']) && isset($param['opcoes']) && count($param['opcoes']) > 0){
+			$temp = [];
+			$temp['titulo'] 	= $param['titulo'] ?? '';
+			$temp['icone'] 		= $param['icone'] ?? '';
+			$temp['cor'] 		= $param['cor'] ?? COR_PADRAO_BOTOES;
+			$temp['width'] 		= $param['width'] ?? '30';
+			$temp['pos'] 		= $param['pos'] ?? 'I';
+			
+			foreach ($param['opcoes'] as $opcao){
+			    $op = [];
+			    $op['texto'] 			= $opcao['texto'] ?? '';
+			    $op['link'] 			= $opcao['link'] ?? '';
+			    $op['coluna'] 			= $opcao['coluna'] ?? '';;
+			    $op['flag'] 			= $opcao['flag'] ?? '';
+			    $op['flag_habilitado']	= $opcao['flag_habilitado'] ?? '';
+			    
+			    $temp['opcoes'][]		= $op;
+			}
+			
+			$this->_acoesDropdown[] = $temp;
+			$this->getTamanhoTotalTabela();
+			$this->_scrollCollapse = false;
 		}
 	}
 	
@@ -760,6 +933,11 @@ class tabela01{
 				$this->_tabWidth += $acoes['width'];
 			}
 		}
+		if(count($this->_acoesDropdown) > 0 && $this->_tabWidth > 0){
+			foreach ($this->_acoesDropdown as $acoes){
+				$this->_tabWidth += $acoes['width'];
+			}
+		}
 		if($this->_seleciona){
 			$this->_tabWidth += $this->_selec_tam;
 		}
@@ -817,11 +995,13 @@ class tabela01{
 		}else{
 			addPortalJquery('"ordering": true,');
 		}
+		if($this->_scrollCollapse){
+			addPortalJquery('"scrollCollapse": true,');
+		}
 		if($this->_scroll){
 			//addPortalJquery('"scrollY": 300,');
 			addPortalJquery('"scrollY": \'60vh\',');
 			addPortalJquery('"scrollX": true,');
-			addPortalJquery('"scrollCollapse": true,');
 			//addPortalJquery('"scrollX": true,');
 		}else{
 			if($this->_scrollY){

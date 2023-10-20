@@ -237,7 +237,7 @@ class pdf_exporta02{
 	private function criarArquivoHtml($html){
 	    global $config;
 	    $ret = '';
-	    $caminho = $config['tempURL'] . geraStringAleatoria(6) . '.html';
+	    $caminho = $config['tempPach'] . geraStringAleatoria(6) . '.html';
 	    $ret = $caminho;
 	    $handle = fopen($caminho, 'w');
 	    fwrite($handle, $html);

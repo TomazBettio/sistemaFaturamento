@@ -20,7 +20,7 @@ class funcoes_cad{
 			$ret[0][1] = "&nbsp;";
 		}
 		
-		$sql = "SELECT cod, $campo FROM cad_clientes WHERE ativo = 'S' ORDER BY $campo";
+		$sql = "SELECT cod, $campo FROM cad_organizacoes WHERE ativo = 'S' ORDER BY $campo";
 		$rows = query($sql);
 		
 		if(is_array($rows) && count($rows) > 0){
@@ -37,7 +37,7 @@ class funcoes_cad{
 	static function getClienteCampo($id, $campo = 'nome'){
 		$ret = '';
 		
-		$sql = "SELECT $campo FROM cad_clientes WHERE id = $id";
+		$sql = "SELECT $campo FROM cad_organizacoes WHERE id = $id";
 		$rows = query($sql);
 		
 		if(isset($rows[0][$campo])){
@@ -46,17 +46,51 @@ class funcoes_cad{
 		return $ret;
 	}
 	
+	static function getClienteCampoByCodigo($codigo, $campo = 'nome'){
+	    $ret = '';
+	    
+	    $sql = "SELECT $campo FROM cad_organizacoes WHERE cod = '$codigo'";
+	    $rows = query($sql);
+	    
+	    if(isset($rows[0][$campo])){
+	        $ret = $rows[0][$campo];
+	    }
+	    return $ret;
+	}
+	
 	//------------------------------------------------------------------------------------------ Recursos ---------------------
 	
-	static function getListaRecursos($campo = 'apelido',$branco = true){
+	static function getListaRecursos($param = []){
 		$ret = array();
+		
+		$campo = $param['campo'] ?? 'apelido';
+		$branco = $param['branco'] ?? true;
+		$agenda = $param['agenda'] ?? 'S';
+		$ativo = $param['ativo'] ?? 'S';
 		
 		if($branco){
 			$ret[0][0] = "";
 			$ret[0][1] = "&nbsp;";
 		}
 		
-		$sql = "SELECT usuario, $campo FROM cad_recursos WHERE agenda = 'S'  ORDER BY $campo";
+		$where = '';
+		if($agenda == 'S' || $agenda == 'N'){
+			$where .= "agenda = '$agenda'";
+		}
+		
+		if($ativo == 'S' || $ativo == 'N'){
+			if(!empty($where)){
+				$where .= " AND ";
+			}
+			$where .= "ativo = '$ativo'";
+		}
+		
+		
+		if(empty($where)){
+			$where = '1=1';
+		}
+		
+		$sql = "SELECT usuario, $campo FROM sdm_recursos WHERE $where AND IFNULL(del, ' ') <> '*' ORDER BY $campo";
 		$rows = query($sql);
 		
 		if(is_array($rows) && count($rows) > 0){
@@ -73,7 +107,7 @@ class funcoes_cad{
 	static function getRecursoCampo($usuario, $campo = 'nome'){
 		$ret = '';
 		
-		$sql = "SELECT $campo FROM cad_recursos WHERE usuario = '$usuario'";
+		$sql = "SELECT $campo FROM sdm_recursos WHERE usuario = '$usuario'";
 		$rows = query($sql);
 		
 		if(isset($rows[0][$campo])){

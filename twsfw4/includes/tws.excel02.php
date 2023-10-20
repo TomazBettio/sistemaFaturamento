@@ -32,6 +32,9 @@ class excel02{
 	//Worksheet de trabalho
 	private $_wsSetada;
 	
+	//dados cabeçalho
+	private $_dadosCabecalho = [];
+	
 	function __construct($arquivo = ''){
 		$this->_excel = new PHPExcel();
 		$this->_excel->getProperties()->setCreator("www.thielws.com.br");
@@ -45,7 +48,14 @@ class excel02{
 		$this->_arquivo = $arquivo;
 	}
 	
+	public function setCabecalho($dados){
+	    $this->_dadosCabecalho = $dados;
+	}
+	
 	public function addWorksheet($index = NULL, $titulo = ''){
+		$titulo = str_replace(['*', ':', '/', '\\', '?', '[', ']'], '', $titulo);
+		$titulo = tirarAcentos($titulo);
+		$titulo = substr($titulo, 0, 30);
 		if($index != 0 && $index != null){
 			$this->_excel->createSheet($index);
 		}
@@ -83,9 +93,24 @@ class excel02{
 	}
 	
 	function setDados($cab,$dados,$campos, $tipo = array()){
-		$this->setColunas($cab);
-		
-		$linha = 2;
+	    $linha = 1;
+	    $this->setColunas($cab);
+	    if(count($this->_dadosCabecalho) > 0){
+	        foreach ($this->_dadosCabecalho as $cabecalho){
+	            $coluna = 0;
+	            foreach ($cabecalho as $col){
+	                //$this->_excel->getActiveSheet()->setCellValue($this->_colunas[$this->_wsSetada][$coluna].$linha, $col);
+	                //$this->_excel->getActiveSheet()->getStyle($this->_colunas[$this->_wsSetada][$coluna].$linha)->getNumberFormat()->setFormatCode(PHPExcel_Style_NumberFormat::FORMAT_TEXT);
+	                $this->_excel->getActiveSheet()->setCellValueExplicit($this->_colunas[$this->_wsSetada][$coluna].$linha, $col,PHPExcel_Cell_DataType::TYPE_STRING);
+	                
+	                $coluna++;
+	            }
+	            $linha++;
+	        }
+	    }
+	    $linha_cab = $linha;
+	    $linha++;
+	    
 		if(count($dados) > 0 && is_array($dados)){
 			foreach ($dados as $dado){
 				$coluna = 0;
@@ -111,18 +136,24 @@ class excel02{
 				$linha++;
 			}
 		}
-		$this->setCabColunas($cab);
-		$this->formataTitulo();
+		foreach ($tipo as $coluna => $tipo_atual){
+		    //esconde as colunas do tipo HD
+		    if($tipo_atual == 'HD'){
+		        $this->_excel->getActiveSheet()->getColumnDimension($this->_colunas[$this->_wsSetada][$coluna])->setVisible(false);
+		    }
+		}
+		$this->setCabColunas($cab, $linha_cab);
+		$this->formataTitulo($linha_cab);
 	}
 	
-	function setCabColunas($cab){
-		$i = 0;
-		foreach ($cab as $c){
-			$c = str_replace('<br>', ' ', $c);
-			$this->_excel->getActiveSheet()->setCellValue($this->_colunas[$this->_wsSetada][$i].'1', $c);
-			$this->_excel->getActiveSheet()->getColumnDimension($this->_colunas[$this->_wsSetada][$i])->setAutoSize(true);
-			$i++;
-		}
+	function setCabColunas($cab, $linha = 1){
+	    $i = 0;
+	    foreach ($cab as $c){
+	        $c = str_replace('<br>', ' ', $c);
+	        $this->_excel->getActiveSheet()->setCellValue($this->_colunas[$this->_wsSetada][$i].$linha, $c);
+	        $this->_excel->getActiveSheet()->getColumnDimension($this->_colunas[$this->_wsSetada][$i])->setAutoSize(true);
+	        $i++;
+	    }
 	}
 	
 	function setColunas($cab){
@@ -145,14 +176,28 @@ class excel02{
 	}
 
 	
-	function grava(){
+	function grava($compactar = false){
 		$objWriter = PHPExcel_IOFactory::createWriter($this->_excel, 'Excel2007');
 		$objWriter->save($this->_arquivo);
+		
+		
+		if($compactar){
+			$zip = new ZipArchive();
+			$arquivo = str_replace('xlsx', 'zip', $this->_arquivo);
+			if ($zip->open($arquivo, ZipArchive::CREATE) !== true) {
+				echo 'Falha ao criar o arquivo ' . $arquivo ."<br>\n" ;
+				return false;
+			} else {
+				$zip->addFile($this->_arquivo, basename($this->_arquivo) );
+				$zip->close();
+				return true;
+			}
+		}
 	}
 	
-	function formataTitulo(){
-		$ini = $this->_colunas[$this->_wsSetada][0].'1';
-		$fim = $this->_colunas[$this->_wsSetada][count($this->_colunas[$this->_wsSetada])-1].'1';
+	function formataTitulo($linha){
+	    $ini = $this->_colunas[$this->_wsSetada][0].$linha;
+	    $fim = $this->_colunas[$this->_wsSetada][count($this->_colunas[$this->_wsSetada])-1].$linha;
 		$this->_excel->getActiveSheet()->getStyle($ini.':'.$fim)->applyFromArray(
 				array(
 						'font'    => array(

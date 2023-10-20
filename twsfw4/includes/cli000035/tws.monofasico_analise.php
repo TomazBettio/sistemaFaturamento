@@ -57,7 +57,13 @@ class monofasico_analise
 	// contrato do cliente
 	private $_contrato;
 
-	public function __construct($cnpj, $contrato)
+	//id
+	private $_id;
+	
+	//Cadastro do contrato
+	private $_contrato_dados;
+
+	public function __construct($cnpj, $contrato, $id)
 	{
 		global $config;
 
@@ -72,10 +78,11 @@ class monofasico_analise
 
 		$this->_cnpj = $cnpj;
 		$this->_contrato = $contrato;
+		$this->_id = $id;
 		$this->_path = $config['pathUpdMonofasico'] . $cnpj . '_' . $contrato . DIRECTORY_SEPARATOR;
 		$this->_teste = false;
 
-		$this->getTitulo();
+		$this->getInfoContrato();
 
 		$param = [];
 		$param['programa'] = $this->_programa;
@@ -105,7 +112,8 @@ class monofasico_analise
 			'selecionado',
 			'qtd',
 			'cod_item',
-			'filial'
+			'filial',
+			'cnpj_forn'
 		];
 	}
 
@@ -116,7 +124,8 @@ class monofasico_analise
 		$arquivos = $this->existeArquivos();
 
 		if (!$arquivos) {
-			return header('Location: ' . getLink() . "avisos&mensagem=Não OI existem arquivos processados neste cliente!&tipo=erro"); // getLink() . "index";
+			addPortalMensagem('Não existem arquivos processados neste cliente','error');
+			redireciona();
 		}
 
 		if (is_file($this->_path . 'arquivos/resultado.vert')) {
@@ -124,7 +133,7 @@ class monofasico_analise
 		} else {
 			$this->setDados();
 			$dados = $this->getDados();
-			$dados = $dados['dados_item'];
+			$dados = $dados['dados_item'] ?? [];
 		}
 
 		$this->montaColunas();
@@ -145,7 +154,7 @@ class monofasico_analise
 
 		$botao_processa = [];
 		$botao_processa['texto'] = 'Processar Novamente';
-		$botao_processa["onclick"] = "setLocation('" . getLink() . "analise.refazerAnalise&cnpj=" . $this->_cnpj . '|' . $this->_contrato . "')";
+		$botao_processa["onclick"] = "setLocation('" . getLink() . "analise.refazerAnalise&cnpj=" . $this->_cnpj . '|' . $this->_contrato . '|' . $this->_id  . "')";
 		// $botao_processa['link'] = getLink() . 'analise.refazerAnalise&cnpj=' . $this->_cnpj;
 		$this->_relatorio->addBotao($botao_processa);
 
@@ -162,7 +171,7 @@ class monofasico_analise
 		$ret .= $this->_relatorio;
 
 		$param = [];
-		$param['acao'] = getLink() . "analise.salvarItens&cnpj=" . $this->_cnpj . '|' . $this->_contrato;
+		$param['acao'] = getLink() . "analise.salvarItens&cnpj=" . $this->_cnpj . '|' . $this->_contrato . '|' . $this->_id;
 		$param['id'] = 'formItens';
 		$param['nome'] = 'formItens';
 
@@ -171,37 +180,25 @@ class monofasico_analise
 		return $ret;
 	}
 
-	private function getTitulo()
+	private function getInfoContrato()
 	{
-		$sql = "SELECT razao FROM mgt_monofasico WHERE cnpj = '$this->_cnpj' AND contrato = '$this->_contrato'";
+		$sql = "SELECT * FROM mgt_monofasico WHERE cnpj = '$this->_cnpj' AND contrato = '$this->_contrato'";
+		$rows = query($sql);
 
-		$rows = queryMF($sql);
-
-		if (!empty($rows)) {
+		if (isset($rows[0]['razao'])) {
 			$this->_titulo = $rows[0]['razao'];
-			return;
+			$this->_contrato_dados['id'] 		= $rows[0]['id'];
+			$this->_contrato_dados['razao'] 	= $rows[0]['razao'];
+			$this->_contrato_dados['cnpj'] 		= $rows[0]['cnpj'];
+			$this->_contrato_dados['contrato'] 	= $rows[0]['contrato'];
+			$this->_contrato_dados['integrado'] = $rows[0]['integrado'];
+			$this->_contrato_dados['apura_ini'] = $rows[0]['apura_ini'];
+			$this->_contrato_dados['apura_fim'] = $rows[0]['apura_fim'];
 		} else {
 			$this->_titulo = '';
-			return;
+			addPortalMensagem('Contrato não encontrado!','error');
 		}
-
-
-		// $file = glob($this->_path . 'arquivos/0000.vert');
-
-		// if (count($file) > 0) {
-		// 	$handle = fopen($file[0], "r");
-		// 	if ($handle) {
-		// 		while (!feof($handle)) {
-		// 			$linha = fgets($handle);
-		// 			$linha = str_replace(["\r\n", "\n", "\r"], '', $linha);
-		// 			if (!empty($linha)) {
-		// 				$sep = explode('|', $linha);
-		// 				$this->_titulo = $sep[2];
-		// 				return true;
-		// 			}
-		// 		}
-		// 	}
-		// }
+		return;
 	}
 
 	private function existeArquivos()
@@ -237,6 +234,15 @@ class monofasico_analise
 		if (is_file($this->_path . 'arquivos/resumoCompliance.vert')) {
 			unlink($this->_path . 'arquivos/resumoCompliance.vert');
 		}
+		if (is_file($this->_path . 'arquivos/resultado_orig.vert')) {
+			unlink($this->_path . 'arquivos/resultado_orig.vert');
+		}
+		if (is_file($this->_path . 'arquivos/resumoCompliance_orig.vert')) {
+			unlink($this->_path . 'arquivos/resumoCompliance_orig.vert');
+		}
+		if (is_file($this->_path . 'arquivos' . DIRECTORY_SEPARATOR . 'resultado' . $this->_contrato . '.csv')) {
+			unlink($this->_path . 'arquivos' . DIRECTORY_SEPARATOR . 'resultado' . $this->_contrato . '.csv');
+		}
 	}
 
 	public function salvarItens()
@@ -255,7 +261,7 @@ class monofasico_analise
 					$linha = explode('|', $linha);
 					$temp = [];
 					foreach ($this->_colunas as $key => $coluna) {
-						$temp[$coluna] = $linha[$key];
+						$temp[$coluna] = str_replace(';', '', $linha[$key]);
 					}
 					$dados[] = $temp;
 				}
@@ -295,7 +301,7 @@ class monofasico_analise
 			$linha = explode('|', $linha);
 			$temp = [];
 			foreach ($this->_colunas as $key => $coluna) {
-				$temp[$coluna] = $linha[$key];
+				$temp[$coluna] = isset($linha[$key]) ? $linha[$key] : '';
 			}
 
 			$checked = '';
@@ -315,146 +321,26 @@ class monofasico_analise
 
 	private function montaColunas()
 	{
-		$this->_relatorio->addColuna(array(
-			'campo' => 'sel',
-			'etiqueta' => '<span class="text-danger">Excluir<span>',
-			'tipo' => 'T',
-			'width' => 80,
-			'posicao' => 'C'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'chv_nf',
-			'etiqueta' => 'Chave de Acesso',
-			'tipo' => 'T',
-			'width' => 80,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'num_doc',
-			'etiqueta' => 'Nota Fiscal',
-			'tipo' => 'T',
-			'width' => 80,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'data_emi',
-			'etiqueta' => 'Data Nota',
-			'tipo' => 'D',
-			'width' => 80,
-			'posicao' => 'C'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'fornecedor',
-			'etiqueta' => 'Fornecedor',
-			'tipo' => 'T',
-			'width' => 100,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'descr_item',
-			'etiqueta' => 'Nome Produto',
-			'tipo' => 'T',
-			'width' => 100,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'ncm',
-			'etiqueta' => 'NCM',
-			'tipo' => 'T',
-			'width' => 80,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'cfop',
-			'etiqueta' => 'CFOP',
-			'tipo' => 'T',
-			'width' => 250,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'ind_oper',
-			'etiqueta' => 'Operação',
-			'tipo' => 'T',
-			'width' => 250,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'num_item',
-			'etiqueta' => 'Nº Item',
-			'tipo' => 'T',
-			'width' => 80,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'itens_nota',
-			'etiqueta' => 'itens_nota',
-			'tipo' => 'T',
-			'width' => 250,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'vl_item',
-			'etiqueta' => 'Valor item',
-			'tipo' => 'V',
-			'width' => 250,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'vl_desc',
-			'etiqueta' => 'Desconto',
-			'tipo' => 'V',
-			'width' => 250,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'vl_base',
-			'etiqueta' => 'Valor Base',
-			'tipo' => 'V',
-			'width' => 250,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'aliq_pis',
-			'etiqueta' => 'Aliq_pis',
-			'tipo' => 'V',
-			'width' => 250,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'aliq_cofins',
-			'etiqueta' => 'Aliq_cofins',
-			'tipo' => 'V',
-			'width' => 250,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'vl_final_pis',
-			'etiqueta' => 'Valor Final PIS',
-			'tipo' => 'V',
-			'width' => 250,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'vl_final_cofins',
-			'etiqueta' => 'Valor Final COFINS',
-			'tipo' => 'V',
-			'width' => 250,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'vl_calc_final_pis',
-			'etiqueta' => 'PIS a recuperar',
-			'tipo' => 'V',
-			'width' => 250,
-			'posicao' => 'E'
-		));
-		$this->_relatorio->addColuna(array(
-			'campo' => 'vl_calc_final_cofins',
-			'etiqueta' => 'COFINS a recuperar',
-			'tipo' => 'V',
-			'width' => 250,
-			'posicao' => 'E'
-		));
+		$this->_relatorio->addColuna(array('campo' => 'sel'					,'etiqueta' => '<span class="text-danger">Excluir<span>', 'tipo' => 'T', 'width' => 80, 'posicao' => 'C' ));
+		$this->_relatorio->addColuna(array('campo' => 'chv_nf'				,'etiqueta' => 'Chave de Acesso'	,'tipo' => 'T','width' =>  80,'posicao' => 'E' ));
+		$this->_relatorio->addColuna(array('campo' => 'num_doc'				,'etiqueta' => 'Nota Fiscal'		,'tipo' => 'T','width' =>  80,'posicao' => 'E' ));
+		$this->_relatorio->addColuna(array('campo' => 'data_emi'			,'etiqueta' => 'Data Nota'			,'tipo' => 'D','width' =>  80,'posicao' => 'C'));
+		$this->_relatorio->addColuna(array('campo' => 'fornecedor'			,'etiqueta' => 'Fornecedor'			,'tipo' => 'T','width' => 100,'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'descr_item'			,'etiqueta' => 'Nome Produto'		,'tipo' => 'T','width' => 100,'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'ncm'					,'etiqueta' => 'NCM'				,'tipo' => 'T','width' =>  80,'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'cfop'				,'etiqueta' => 'CFOP'				,'tipo' => 'T','width' => 250,'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'ind_oper'			,'etiqueta' => 'Operação'			,'tipo' => 'T','width' => 250,'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'num_item'			,'etiqueta' => 'Nº Item'			,'tipo' => 'T','width' =>  80,'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'itens_nota'			,'etiqueta' => 'itens_nota'			,'tipo' => 'T','width' => 250,'posicao' => 'E'));
+		$this->_relatorio->addColuna(array('campo' => 'vl_item'				,'etiqueta' => 'Valor item'			,'tipo' => 'V','width' => 250,'posicao' => 'D'));
+		$this->_relatorio->addColuna(array('campo' => 'vl_desc'				,'etiqueta' => 'Desconto'			,'tipo' => 'V','width' => 250,'posicao' => 'D'));
+		$this->_relatorio->addColuna(array('campo' => 'vl_base'				,'etiqueta' => 'Valor Base'			,'tipo' => 'V','width' => 250,'posicao' => 'D'));
+		$this->_relatorio->addColuna(array('campo' => 'aliq_pis'			,'etiqueta' => 'Aliq_pis'			,'tipo' => 'V','width' => 250,'posicao' => 'D'));
+		$this->_relatorio->addColuna(array('campo' => 'aliq_cofins'			,'etiqueta' => 'Aliq_cofins'		,'tipo' => 'V','width' => 250,'posicao' => 'D'));
+		$this->_relatorio->addColuna(array('campo' => 'vl_final_pis'		,'etiqueta' => 'Valor Final PIS'	,'tipo' => 'V','width' => 250,'posicao' => 'D'));
+		$this->_relatorio->addColuna(array('campo' => 'vl_final_cofins'		,'etiqueta' => 'Valor Final COFINS'	,'tipo' => 'V','width' => 250,'posicao' => 'D'));
+		$this->_relatorio->addColuna(array('campo' => 'vl_calc_final_pis'	,'etiqueta' => 'PIS a recuperar'	,'tipo' => 'V','width' => 250,'posicao' => 'D'));
+		$this->_relatorio->addColuna(array('campo' => 'vl_calc_final_cofins','etiqueta' => 'COFINS a recuperar'	,'tipo' => 'V','width' => 250,'posicao' => 'D'));
 	}
 
 	private function getComplianceMensal($resultado)
@@ -495,42 +381,38 @@ class monofasico_analise
 			$anoMes = str_replace('-', '', substr($nota['data_emi'], 0, 6));
 			if (isset($this->_C170[$chave])) {
 				foreach ($this->_C170[$chave] as $item) {
-					// print_r($item);
 					$codigo_ncm = $this->_0200[$item['cod_item']]['ncm'] . '';
-					// magic to string
-
-					// echo $codigo_ncm;
 					if (isset($this->_ncm[$codigo_ncm]) && isset($this->_cfop[$item['cfop']])) {
-						// $checked = $row['status'] == 'S' ? 'checked' : '';
 						$checked = '';
 						$temp = [];
-						$temp['sel'] = '<input name="item[' . $item['chv_nfe'] . '-' . $item['num_item'] . ']" type="checkbox" value="" ' . $checked . ' id="' . $item['chv_nfe'] . '-' . $item['num_item'] . '">';
-						$temp['chv_nf'] = $item['chv_nfe'];
-						$temp['num_doc'] = $nota['num_doc'];
-						$temp['data_emi'] = str_replace('-', '', $nota['data_emi']); // 2020-04-06
-						$temp['fornecedor'] = isset($this->_0150[$nota['cod_part']]['razao']) ? $this->_0150[$nota['cod_part']]['razao'] : $this->_0140[$nota['cod_part']]['razao'];
-						$temp['descr_item'] = $this->_0200[$item['cod_item']]['descr_item'];
-						$temp['ncm'] = $this->_0200[$item['cod_item']]['ncm'];
-						$temp['cfop'] = $item['cfop'];
-						$temp['ind_oper'] = $nota['ind_oper'] == '0' ? 'Entrada' : 'Saída';
-						$temp['num_item'] = $item['num_item'];
+						$temp['sel'] 						= '<input name="item[' . $item['chv_nfe'] . '-' . $item['num_item'] . ']" type="checkbox" value="" ' . $checked . ' id="' . $item['chv_nfe'] . '-' . $item['num_item'] . '">';
+						$temp['chv_nf'] 				= $item['chv_nfe'];
+						$temp['num_doc'] 				= $nota['num_doc'];
+						$temp['data_emi'] 			= str_replace('-', '', $nota['data_emi']); // 2020-04-06
+						$temp['fornecedor'] 		= isset($this->_0150[$nota['cod_part']]['razao']) ? $this->_0150[$nota['cod_part']]['razao'] : $this->_0140[$nota['cod_part']]['razao'];
+						$temp['descr_item'] 		= $this->_0200[$item['cod_item']]['descr_item'];
+						$temp['ncm'] 						= $this->_0200[$item['cod_item']]['ncm'];
+						$temp['cfop'] 					= $item['cfop'];
+						$temp['ind_oper'] 			= $nota['ind_oper'] == '0' ? 'Entrada' : 'Saída';
+						$temp['num_item'] 			= $item['num_item'];
 						// $temp['itens_nota'] = count($this->_C170[$chave]);
-						$temp['vl_item'] = empty($item['vl_item']) ? 0 : $item['vl_item'];
-						$temp['vl_desc'] = empty($item['vl_desc']) ? 0 : $item['vl_desc'];
-						$temp['vl_base'] = $temp['vl_item'] - $temp['vl_desc'];
-						$resultado = $this->calcularValoresMensais($resultado, $anoMes, 'C', ['vl_final_pis' => 0, 'vl_final_cofins' => 0, 'vl_calc_final_pis' => 0, 'vl_calc_final_cofins' => 0]);
+						$temp['vl_item'] 				= empty($item['vl_item']) ? 0 : $item['vl_item'];
+						$temp['vl_desc'] 				= empty($item['vl_desc']) ? 0 : $item['vl_desc'];
+						$temp['vl_base'] 				= $temp['vl_item'] - $temp['vl_desc'];
+						$resultado 							= $this->calcularValoresMensais($resultado, $anoMes, 'C', ['vl_final_pis' => 0, 'vl_final_cofins' => 0, 'vl_calc_final_pis' => 0, 'vl_calc_final_cofins' => 0]);
 						$resultado[$anoMes]['bruto'] += $temp['vl_base'];
-						log::gravaLog('emanuel', $anoMes . '-' . $temp['vl_base']);
-						$temp['aliq_pis'] = $this->_ncm[$this->_0200[$item['cod_item']]['ncm']]['aliq_pis'];
-						$temp['aliq_cofins'] = $this->_ncm[$this->_0200[$item['cod_item']]['ncm']]['aliq_cofins'];
-						$temp['vl_final_pis'] = $temp['vl_base'] * $temp['aliq_pis'] / 100;
-						$temp['vl_final_cofins'] = $temp['vl_base'] * $temp['aliq_cofins'] / 100;
-						$temp['vl_calc_final_pis'] = $this->calculaValorFinal($temp['vl_base'], $temp['aliq_pis'], $this->_cfop[$item['cfop']]['tipo']);
+						//log::gravaLog('emanuel', $anoMes . '-' . $temp['vl_base']);
+						$temp['aliq_pis'] 			= $this->_ncm[$this->_0200[$item['cod_item']]['ncm']]['aliq_pis'];
+						$temp['aliq_cofins'] 		= $this->_ncm[$this->_0200[$item['cod_item']]['ncm']]['aliq_cofins'];
+						$temp['vl_final_pis'] 	= $temp['vl_base'] * $temp['aliq_pis'] / 100;
+						$temp['vl_final_cofins'] 			= $temp['vl_base'] * $temp['aliq_cofins'] / 100;
+						$temp['vl_calc_final_pis'] 		= $this->calculaValorFinal($temp['vl_base'], $temp['aliq_pis'], $this->_cfop[$item['cfop']]['tipo']);
 						$temp['vl_calc_final_cofins'] = $this->calculaValorFinal($temp['vl_base'], $temp['aliq_cofins'], $this->_cfop[$item['cfop']]['tipo']);
-						$temp['selecionado'] = 'S';
-						$temp['qtd'] = $item['qtd'];
-						$temp['cod_item'] = $item['cod_item'];
-						$temp['filial'] = $nota['filial'];
+						$temp['selecionado'] 		= 'S';
+						$temp['qtd'] 						= $item['qtd'];
+						$temp['cod_item']				= $item['cod_item'];
+						$temp['filial'] 				= $nota['filial'];
+						$temp['cnpj_forn']			= isset($this->_0150[$nota['cod_part']]['cnpj']) ? $this->_0150[$nota['cod_part']]['cnpj'] : $this->_0140[$nota['cod_part']]['cnpj'];
 						// print_r($this->_0140);
 						// die();x
 
@@ -555,13 +437,69 @@ class monofasico_analise
 			}
 		}
 		$ret['resultado'] = $resultado;
-		$this->salvarResultado($ret['dados_item']);
+		if(isset($ret['dados_item'])){
+			$this->salvarResultado($ret['dados_item']);
+		}
 		$this->getComplianceMensal($resultado); // resumo
+		
+		$this->realiza_copia_auditoria();
+		
 		return $ret;
 	}
 
+	public function resumoCompliance($arquivo)
+	{
+		$ret = ''; //abrir arquivo em php com a função file
+		$dados = [];
+		$resultado = [];
+		$this->_colunas;
 
-	private function calcularValoresMensais($resultado, $anoMes, $tipo, $linha)
+		$handle = fopen($arquivo, 'r');
+		while (!feof($handle)) {
+			$linha = fgets($handle);
+			$linha = str_replace([
+				"\r\n",
+				"\n",
+				"\r"
+			], '', $linha);
+			if (!empty($linha)) {
+				$sep = explode('|', $linha);
+				if (count($sep) > 1) {
+					$temp = [];
+					$temp['data_emi']             = $sep[3];
+					$temp['cfop']                 = $sep[6];
+					$temp['vl_base']              = $sep[12];
+					$temp['vl_final_pis']         = $sep[15];
+					$temp['vl_final_cofins']      = $sep[16];
+					$temp['vl_calc_final_pis']    = $sep[17];
+					$temp['vl_calc_final_cofins'] = $sep[18];
+
+					$dados[] = $temp;
+				}
+			}
+		}
+		fclose($handle);
+
+		foreach ($dados as $dado) {
+			$temp = [];
+			$anoMes = substr($dado['data_emi'], 0, 6);
+			$tipo = $this->_cfop[$dado['cfop']]['tipo'];
+			$resultado = $this->calcularValoresMensais($resultado, $anoMes, 'C', ['vl_final_pis' => 0, 'vl_final_cofins' => 0, 'vl_calc_final_pis' => 0, 'vl_calc_final_cofins' => 0]);
+			$temp['vl_base'] = $dado['vl_base'];
+			$resultado[$anoMes]['bruto'] += $dado['vl_base'];
+			$temp['vl_final_pis'] = $dado['vl_final_pis'];
+			$temp['vl_final_cofins'] = $dado['vl_final_cofins'];
+			$temp['vl_calc_final_pis'] = $dado['vl_calc_final_pis'];
+			$temp['vl_calc_final_cofins'] = $dado['vl_calc_final_cofins'];
+
+			$resultado = $this->calcularValoresMensais($resultado, $anoMes, $tipo, $temp);
+		}
+
+		$this->getComplianceMensal($resultado);
+		return $ret;
+	}
+
+	public function calcularValoresMensais($resultado, $anoMes, $tipo, $linha)
 	{
 		// var_dump($anoMes);
 		if (!isset($resultado[$anoMes])) {
@@ -577,9 +515,10 @@ class monofasico_analise
 
 			// var_dump($resultado[$anoMes]);
 		}
-		$resultado[$anoMes]['vl_final_' . $tipo . '_pis'] 					+= $linha['vl_final_pis'];
-		$resultado[$anoMes]['vl_final_' . $tipo . '_cofins'] 			+= $linha['vl_final_cofins'];
-		$resultado[$anoMes]['vl_calc_final_' . $tipo . '_pis'] 		+= $linha['vl_calc_final_pis'];
+		// echo $resultado[$anoMes]['vl_final_' . $tipo . '_pis'] 					. ' ' . $linha['vl_final_pis'] . '<br><br>' . "\n";
+		$resultado[$anoMes]['vl_final_' . $tipo . '_pis'] 					+= round($linha['vl_final_pis'], 2);
+		$resultado[$anoMes]['vl_final_' . $tipo . '_cofins'] 				+= round($linha['vl_final_cofins'], 2);
+		$resultado[$anoMes]['vl_calc_final_' . $tipo . '_pis'] 			+= $linha['vl_calc_final_pis'];
 		$resultado[$anoMes]['vl_calc_final_' . $tipo . '_cofins'] 	+= $linha['vl_calc_final_cofins'];
 		// echo $anoMes;
 		return $resultado;
@@ -702,7 +641,7 @@ class monofasico_analise
 	private function setDadosC100($arquivo)
 	{
 		$handle = fopen($arquivo, "r");
-
+		
 		if ($handle) {
 			while (!feof($handle)) {
 				$linha = fgets($handle);
@@ -722,7 +661,19 @@ class monofasico_analise
 						$temp['data_emi'] = $sep[5];
 						$temp['total_bnf'] = $sep[6];
 						$temp['filial'] = $sep[7];
-						$this->_C100[] = $temp;
+						
+						//Verifica se a nota está dentro do periodo de analise
+						$processa = true;
+						if(!empty($this->_contrato_dados['apura_ini']) && $this->_contrato_dados['apura_ini'] > $temp['data_emi']){
+							$processa = false;
+						}
+						if(!empty($this->_contrato_dados['apura_fim']) && $this->_contrato_dados['apura_fim'] < $temp['data_emi']){
+							$processa = false;
+						}
+						
+						if($processa){
+							$this->_C100[$temp['chv_nfe']] = $temp;
+						}
 					}
 				}
 			}
@@ -732,11 +683,11 @@ class monofasico_analise
 		}
 		return;
 	}
-
+	
 	private function setDadosC170($arquivo)
 	{
 		$handle = fopen($arquivo, "r");
-
+		
 		if ($handle) {
 			while (!feof($handle)) {
 				$linha = fgets($handle);
@@ -750,17 +701,21 @@ class monofasico_analise
 					if (count($sep) > 0 && $sep[0] == 'C170') {
 						// echo $linha . '<br>' . "\n";
 						$temp = [];
-						$temp['num_item'] = $sep[1];
-						$temp['cod_item'] = $sep[2];
-						$temp['qtd'] = $sep[3];
-						$temp['vl_item'] = $sep[4];
-						$temp['vl_desc'] = $sep[5];
-						$temp['cfop'] = $sep[6];
-						$temp['cst'] = $sep[7];
-						$temp['aliq_pis'] = $sep[8];
-						$temp['aliq_cofins'] = $sep[9];
-						$temp['chv_nfe'] = $sep[10];
-						$this->_C170[substr($temp['chv_nfe'], 0, 43)][] = $temp;
+						$temp['num_item'] 	= $sep[1];
+						$temp['cod_item'] 	= $sep[2];
+						$temp['qtd'] 		= $sep[3];
+						$temp['vl_item'] 	= $sep[4];
+						$temp['vl_desc'] 	= $sep[5];
+						$temp['cfop'] 		= $sep[6];
+						$temp['cst'] 		= $sep[7];
+						$temp['aliq_pis'] 	= $sep[8];
+						$temp['aliq_cofins']= $sep[9];
+						$temp['chv_nfe'] 	= $sep[10];
+						
+						//Carrega somente os itens das notas dentro do período de análise
+						if(isset($this->_C100[$temp['chv_nfe']])){
+							$this->_C170[substr($temp['chv_nfe'], 0, 43)][] = $temp;
+						}
 					}
 				}
 			}
@@ -770,7 +725,6 @@ class monofasico_analise
 		}
 		return;
 	}
-
 	private function setDados()
 	{
 		$arquivo = $this->_path . 'arquivos' . DIRECTORY_SEPARATOR;
@@ -795,7 +749,23 @@ class monofasico_analise
 		// print_r($this->_C100);
 		// print_r($this->_C170);
 	}
+	
+	private function realiza_copia_auditoria(){
+		$arquivos = [];
+		$arquivos[] = $this->_path . 'arquivos/resultado.vert';
+		$arquivos[] = $this->_path . 'arquivos/resumoCompliance.vert';
 
+		$novos = [];
+		$novos[] = $this->_path . 'arquivos/resultado_orig.vert';
+		$novos[] = $this->_path . 'arquivos/resumoCompliance_orig.vert';
+		
+		foreach ($arquivos as$key => $arquivo) {
+			if(is_file($arquivo) && !is_file($novos[$key])){
+				copy($arquivo, $novos[$key]);
+			}
+		}
+		
+	}
 	// ------------------------------------------------------------------------------ UTEIS ------------------
 	private function getNCM()
 	{

@@ -23,6 +23,10 @@ class processa_sped
 
   //Path
   private $_path;
+  
+  //Path raiz do cliente-contrato
+  private $_path_raiz;
+  
 
   //Dados
   private $_dados = [];
@@ -48,19 +52,31 @@ class processa_sped
   //cnpj
   private $_cnpj;
 
-  public function __construct($cnpj, $contrato, $trace = false)
+  // ID cliente
+  private $_id;
+
+  //Indica se está rodando por schedule
+  private $_schedule;
+  
+  public function __construct($cnpj, $contrato, $id, $arquivos_importados, $schedule = false,$trace = false)
   {
     global $config;
-    $this->_path = $config['pathUpdMonofasico'] . $cnpj . '_' . $contrato . DIRECTORY_SEPARATOR;
-    // $this->_path = $config['pathProcessaMonofasico'];
+    
+    if($arquivos_importados == 'N'){
+    	$this->_path = $config['pathUpdMonofasico'] . $cnpj . '_' . $contrato . DIRECTORY_SEPARATOR.'recebidos'.DIRECTORY_SEPARATOR;
+    }else{
+    	$this->_path = $config['pathUpdMonofasico'] . $cnpj . '_' . $contrato . DIRECTORY_SEPARATOR.'zip'.DIRECTORY_SEPARATOR.'sped'.DIRECTORY_SEPARATOR;
+    }
+    $this->_path_raiz = $config['pathUpdMonofasico'] . $cnpj . '_' . $contrato . DIRECTORY_SEPARATOR;
     $this->_trace = $trace;
     $this->_resumo = true;
 
     $this->_cnpj = $cnpj;
+    $this->_id = $id;
 
     $this->_file_exists = $this->existeArquivos('txt');
 
-    return;
+    $this->_schedule = $schedule;
   }
 
   public function getExisteArquivo()
@@ -111,7 +127,9 @@ class processa_sped
     $C175 = [];
     foreach ($arquivos as $arquivo) {
       $C175[] = $this->leituraArquivo($cnpj, $arquivo);
-      rename($this->_path . $arquivo, $this->_path . 'processados_sped' . DIRECTORY_SEPARATOR . $arquivo);
+      if(is_file($this->_path . $arquivo)){
+      	rename($this->_path . $arquivo, $this->_path_raiz . 'processados_sped' . DIRECTORY_SEPARATOR . $arquivo);
+      }
       // $this->excluiNota($arquivo, $cnpj);
     }
 
@@ -126,7 +144,10 @@ class processa_sped
       }
 
       if ($erro) {
-        redireciona(getLink() . 'avisos&mensagem=Existem C175 nos seguintes arquivos (' . $mensagem . ')&tipo=erro');
+      	if(!$this->_schedule){
+      		addPortalMensagem('Existem C175 nos seguintes arquivos (' . $mensagem . ')','error');
+      		redireciona();
+      	}
       }
     }
 
@@ -153,9 +174,11 @@ class processa_sped
 
     foreach ($meses as $anoMes) {
       if (count($ret[$anoMes]) > 1) {
-        foreach ($ret[$anoMes] as $key => $arquivos) {
+        foreach ($ret[$anoMes] as $key => $arquivo) {
           if (strpos(strtoupper($arquivo), 'ORIGINAL')) {
-            unlink($this->_path . $arquivo);
+          	if(is_file($this->_path . $arquivo)){
+          		unlink($this->_path . $arquivo);
+          	}
 
             unset($ret[$anoMes][$key]);
           }
@@ -167,7 +190,9 @@ class processa_sped
 
             foreach ($ret[$anoMes] as $key => $arquivo) {
               if ($excluir) {
-                unlink($this->_path . $arquivo);
+              	if(is_file($this->_path . $arquivo)){
+              		unlink($this->_path . $arquivo);
+              	}
 
                 unset($ret[$anoMes][$key]);
               } else {
@@ -280,6 +305,7 @@ class processa_sped
                         $temp['filial'] = $temp_filial;
                         $param[] = $temp;
                         $this->gravaNotaBloco($param);
+                        $this->setPermissoesBanco(substr($temp['data_emissao'], 0, 6));
                       }
                     }
                   }
@@ -288,13 +314,14 @@ class processa_sped
                     $temp = [];
                     $temp['bloco'] = $sep[1];
                     $temp['cod_item'] = $sep[2];
-                    $temp['nome_produto'] = $sep[3];
+                    $temp['nome_produto'] = str_replace(";", '', $sep[3]);
                     $temp['cod_ncm'] = $sep[8];
                     $param[] = $temp;
                     $this->gravaNotaBloco($param);
                   }
                   //não pode ser chave vazia e o cst pis[25] e cst cofins[31] tem que ser 73 - que é entrada monofasica
-                  if ($sep[1] == 'C170' && !empty($chave_nf) && (empty($sep[30]) || ($sep[30] == round(0, 2)))) {
+                  //essa verificação diz que se o valor do pis for 0, então é uma entrada monofasica - pois não tomou crédito
+                  if ($sep[1] == 'C170' && !empty($chave_nf) && (empty($sep[30]) || ($sep[30] == '0,00'))) {
 
                     //sep 30 zerado
                     // && (empty($sep[30]) || ($sep[30] == 0))
@@ -317,6 +344,10 @@ class processa_sped
                       $temp['aliq_pis'] = str_replace(',', '.', $aliq_pis);
                       $temp['aliq_cofins'] = str_replace(',', '.', $aliq_cofins);
                       $temp['chv_nfe'] = $chave_nf;
+                      
+                      $temp['vl_pis'] = $sep[30];
+                      $temp['vl_cofins'] = $sep[36];
+                      
                       $param[] = $temp;
                       $this->gravaNotaBloco($param);
                     }
@@ -349,14 +380,25 @@ class processa_sped
     return $ret;
   }
 
+  private function setPermissoesBanco($data)
+  {
+    $sql = "SELECT * FROM mgt_monofasico_arquivos WHERE id_monofasico = $this->_id AND data = $data";
+    $row = queryMF($sql);
+
+    if (is_array($row) && count($row) > 0 && $row[0]['alterar'] == 'N') {
+      $sql = "UPDATE mgt_monofasico_arquivos SET alterar = 'S' WHERE id_monofasico = $this->_id AND data = $data";
+      queryMF($sql);
+    }
+  }
+
   private function moveArquivoErro($path, $filename)
   {
-    rename($path, $this->_path . 'erro' . DIRECTORY_SEPARATOR . $filename);
+  	rename($path, $this->_path_raiz . 'erro' . DIRECTORY_SEPARATOR . $filename);
   }
 
   private function controlador($num_doc, $data, $nome)
   {
-    $file = fopen($this->_path . 'arquivos' . DIRECTORY_SEPARATOR . '0000.vert', "a");
+  	$file = fopen($this->_path_raiz . 'arquivos' . DIRECTORY_SEPARATOR . '0000.vert', "a");
 
     $dados = [];
     $dados['num_doc'] = $num_doc;
@@ -372,7 +414,7 @@ class processa_sped
   {
     $ret = true;
 
-    $files = glob($this->_path . 'arquivos' .  DIRECTORY_SEPARATOR . '0000.vert');
+    $files = glob($this->_path_raiz . 'arquivos' .  DIRECTORY_SEPARATOR . '0000.vert');
 
     if (count($files) > 0) {
       $handle = fopen($files[0], "r");
@@ -393,64 +435,6 @@ class processa_sped
 
   //--------------------------------------------------------------- RESUMO ----------------------------------
 
-  /**
-   * Verifica se o arquivo de resumo existe
-   *
-   * @param string $nome - Nome do arquivo (sem extensão)
-   * @return boolean
-   */
-  // private function verificaResumo($nome)
-  // {
-  //   $ret = true;
-  //   $arq = $this->_path . DIRECTORY_SEPARATOR . $nome . '.txt';
-
-  //   if (file_exists($arq)) {
-  //     $ret = false;
-  //   }
-
-  //   return $ret;
-  // }
-
-  // private function gravaResumo($arquivo)
-  // {
-  //   $dados = [];
-  //   if (empty($arquivo)) {
-  //     return;
-  //   }
-
-  //   ksort($this->_dados);
-
-  //   $file = fopen($this->_path . DIRECTORY_SEPARATOR . $arquivo . '.txt', "w");
-  //   if (count($this->_dados) == 0) {
-  //     echo "Arquivo $arquivo sem dados!<br>\n";
-  //     return;
-  //   }
-
-  //   foreach ($this->_dados as $dado) {
-  //     fwrite($file, implode('|', $dado) . "\n");
-  //   }
-
-  //   fclose($file);
-  // }
-
-  private function gravaNota($dados, $cnpj)
-  {
-    if (empty($dados)) {
-      return;
-    }
-
-    $file = fopen($this->_path . 'arquivo_sped' . DIRECTORY_SEPARATOR . 'sped.vert', "a");
-
-    foreach ($dados as $dado) {
-      // fwrite($file, implode('|', $dado) . "\n");
-      //write a json file
-      // fwrite($file, json_encode($dado) . "\n");
-      fwrite($file, implode('|', $dado) . "\n");
-    }
-
-    fclose($file);
-  }
-
   private function gravaNotaBloco($dados)
   {
     if (empty($dados)) {
@@ -463,7 +447,7 @@ class processa_sped
       $arquivo = $dados[0]['bloco'];
     }
 
-    $file = fopen($this->_path . 'arquivos' . DIRECTORY_SEPARATOR . $arquivo . '.vert', "a");
+    $file = fopen($this->_path_raiz . 'arquivos' . DIRECTORY_SEPARATOR . $arquivo . '.vert', "a");
 
     foreach ($dados as $dado) {
       // fwrite($file, implode('|', $dado) . "\n");
@@ -480,45 +464,7 @@ class processa_sped
   private function excluiNota($arquivo, $cnpj)
   {
     $file = $this->_path . $arquivo;
-
     unlink($file);
   }
 
-
-  // private function recuperaResumo($arquivo)
-  // {
-  //   $dados = [];
-  //   if (empty($arquivo)) {
-  //     return;
-  //   }
-
-  //   $handle = fopen($this->_path . DIRECTORY_SEPARATOR . $arquivo . '.txt', "r");
-  //   if ($handle) {
-  //     while (!feof($handle)) {
-  //       $linha = fgets($handle);
-  //       if (strlen(trim($linha)) > 0) {
-  //         $dados[] = str_replace("\n", '', $linha);
-  //       }
-  //     }
-  //     fclose($handle);
-  //   } else {
-  //     addPortalMensagem("Arquivo $arquivo - recuperaArquivo - não encontrado", 'danger');
-  //   }
-
-  //   foreach ($dados as $dado) {
-  //     $dado = explode('|', $dado);
-
-  //     $temp = [];
-  //     $temp['data']   = $dado[0];
-  //     $temp['nota']  = $dado[1];
-  //     $temp['vl']    = $dado[2];
-  //     $temp['pis']  = $dado[3];
-  //     $temp['cof']  = $dado[4];
-  //     $temp['bloco']   = $dado[5];
-  //     $temp['seq']  = isset($dado[6]) ? $dado[6] : '';
-  //     $temp['prod']  = isset($dado[7]) ? $dado[7] : '';
-
-  //     $this->_dados[] = $temp;
-  //   }
-  // }
 }

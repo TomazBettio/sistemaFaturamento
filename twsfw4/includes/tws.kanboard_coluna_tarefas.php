@@ -5,18 +5,31 @@ class kanboard_coluna_tarefas{
     private $_tarefas_internas = array();
     private $_id_coluna;
     private $_coluna_Ordenavel;
-    private $_id_projeto;
+    private $_idRaia;
+    private $_num_colunas;
+    private $_num_tarefa_vencidas;
+    private $_etiqueta_coluna;
     
-    public function __construct($param_bruto, $id_coluna, $id_projeto){
+    public function __construct($param_bruto, $id_coluna, $id_projeto, $num_colunas){
         $this->_id_coluna = $id_coluna;
-        $this->_id_projeto = $id_projeto;
+        $this->_idRaia = $id_projeto;
         $this->_coluna_Ordenavel = true;
         $tarefas = $param_bruto['tarefas'];
+        $this->_num_tarefa_vencidas = 0;
         foreach ($tarefas as $t){
             $tarefa_interna = new kanboard_tarefa_unitaria($t);
             $this->_tarefas_internas[$tarefa_interna->getPosicao()] = $tarefa_interna;
+            $this->_num_tarefa_vencidas += $tarefa_interna->isVencido();
         }
         ksort($this->_tarefas_internas);
+        
+        $this->_num_colunas = $num_colunas;
+        
+        $this->_etiqueta_coluna = $param_bruto['etiqueta'];
+    }
+    
+    public function getNumTarefasVencidas(){
+        return $this->_num_tarefa_vencidas;
     }
     
     public function __toString(){
@@ -28,7 +41,7 @@ class kanboard_coluna_tarefas{
     }
     
     private function gerarStyleTd(){
-        return '    style="--color-primary: #333;
+        $ret = '    style="--color-primary: #333;
     --color-light: #999;
     --color-lighter: #dedede;
     --color-dark: #000;
@@ -88,13 +101,22 @@ class kanboard_coluna_tarefas{
     border: 1px solid #eee;
     padding: .5em 3px;
     vertical-align: top;
-    box-sizing: initial;"';
+    box-sizing: initial;
+    ';
+        if($this->_num_colunas > 1){
+            //$ret .= 'min-width:200px;';
+        }
+        else{
+            $ret .= 'width:100%;';
+        }
+        $ret .= '"';
+        return $ret;
     }
     
     private function geraHtmlExpandido(){
         $ret = '<div class="board-task-list board-column-expanded ' . ($this->_coluna_Ordenavel ? 'sortable-column ' : '') . 'ui-sortable"
                 data-column-id="' . $this->_id_coluna . '"
-                data-swimlane-id="' . $this->_id_projeto . '"
+                data-swimlane-id="' . $this->_idRaia . '"
                 data-task-limit="0"
                 ' . $this->gerarStyleDivHtmlExpandido() . '
                 >';
@@ -162,14 +184,23 @@ class kanboard_coluna_tarefas{
     text-rendering: optimizeLegibility;
     border-collapse: collapse;
     border-spacing: 0;
-    min-height: 0!important;
-    min-width: 100px;
     box-sizing: initial;
-    min-height: 100px;"';
+    min-height: 40px;' . 
+    'min-width: 200px;' . 
+'"';
     }
     
     private function gerarHtmlColapsado(){
-        $ret = '';
+        $ret = '<div class="board-column-collapsed board-task-list sortable-column"
+                data-column-id="' . $this->_id_coluna . '"
+                data-swimlane-id="' . $this->_idRaia . '"
+                data-task-limit="0">
+                    <div class="board-rotation-wrapper">
+                        <div class="board-column-title board-rotation board-toggle-column-view" data-column-id="' . $this->_id_coluna . '" title="' . $this->_etiqueta_coluna . '">
+                            <i class="fa fa-plus-square" title="mostrar coluna" role="button" aria-label="mostrar coluna"></i> ' . $this->_etiqueta_coluna . '
+                        </div>
+                    </div>
+                </div>';
         return $ret;
     }
 }

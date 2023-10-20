@@ -28,10 +28,10 @@ class log{
 		if($criticidade > 8){
 			//envia email TODO: fazer isto direito
 		}
-		if(is_array($texto)){
+		if(is_array($texto) || is_object($texto)){
 			$texto = print_r($texto, true);
 		}
-		$data = date('ymd - H:i:s ');
+		$data = date('ymd - H:i:s ').getUsuario().' ';
 		$fileName = $config['debugPath'].$arquivo.'.log';
 		if(!$quebraLinha){
 			$texto = str_replace("\n"," ",$texto);
@@ -41,6 +41,39 @@ class log{
 		$file = fopen($fileName, "a");
 		fwrite($file, $data.$texto."\n");
 		fclose($file);
+	}
+	
+	/**
+	 * Grava arquivo de log para exceção SQL do ADOdb
+	 *
+	 * @author	Alex Cesar
+	 * @access	public
+	 * @param	string		$arquivo		Nome do arquivo de log
+	 * @param	string		$texto			Texto a ser gravado
+	 * @return	void
+	 *
+	 * @version 0.01
+	 */
+	static function gravaLogErroDB($arquivo, $texto = '')
+	{
+	    global $config;
+	    if(is_array($texto)){
+	        $texto = print_r($texto, true);
+	    }
+	    $data = date('ymd - H:i:s ').getUsuario().' ';
+	    $fileName = $config['debugPath'].$arquivo.'.log';
+	    
+	    if(!defined('ADODB_ERROR_LOG_TYPE')){
+	        define('ADODB_ERROR_LOG_TYPE',3);
+	    }
+	    
+	    if(!defined('ADODB_ERROR_LOG_DEST')){
+	        define('ADODB_ERROR_LOG_DEST',$fileName); 
+	    }
+	    
+	    $file = fopen($fileName, "a");
+	    fwrite($file, $data.$texto."\n");
+	    fclose($file);
 	}
 	
 	/**
@@ -72,4 +105,15 @@ class log{
 		return true;
 	}
 	
+	/**
+	 * Inclui a mensagem enviada no log do Apache - Iniciando a mesma com 'Verticais - ' para facilitar a localização e terminando com o programa que chamou a função
+	 * 
+	 * @param string $mensagem
+	 */
+	static function logApache($mensagem){
+		$trace = debug_backtrace();
+		$programa = explode('\\', $trace[0]['file']);
+		$total = count($programa);
+		error_log('Verticais - '.$mensagem.' - '.$programa[$total-1].'/'.$programa[$total-2].'/'.$programa[$total-3], 0);
+	}
 }

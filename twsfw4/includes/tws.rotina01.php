@@ -53,12 +53,12 @@ class rotina01{
 			$paramFiltro['layout'] = 'basico';
 			$paramFiltro['tamanho'] = 12;
 			$paramFiltro['posicaoBotoes'] = FORMFILTRO_BT_POS;
-			$paramFiltro['titulo'] = 'Filtro';
+			$paramFiltro['titulo'] = FORMFILTRO_TITULO;
 			$this->_filtro = new formfiltro01($this->_programa, $paramFiltro);
 			
 			$botao = array();
 			$botao['onclick']= "$('#formFiltro').toggle();";
-			$botao['texto']	= 'Filtro';
+			$botao['texto']	= FORMFILTRO_TITULO;
 			$botao['id'] = 'bt_form';
 			$botao['icone'] = 'fa-filter';
 			$this->addBotaoTitulo($botao);
@@ -192,5 +192,9 @@ class rotina01{
 	
 	public function escondeFiltro(){
 		addPortalJquery("$('#formFiltro').hide();");
+	}
+	
+	public function adicionaSys020Parametro($dados){
+		$this->_sys020->inclui($dados);
 	}
 }

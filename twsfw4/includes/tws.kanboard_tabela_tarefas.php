@@ -5,12 +5,16 @@
 class kanboard_tabela_tarefas{
     private $_cabs = array();
     private $_tarefas = array();
+    private $_raias = array();
     
     private $_id;
     private $_linkSalvar;
     private $_linkReload;
     private $_linkCheck;
     private $_linkCriacaoTarefas;
+    
+    private $_num_raias;
+    private $_num_colunas;
     
     public function __construct($projeto, $dados, $param = array()){
         $this->_linkSalvar = $param['link_salvar'] ?? '/intranet4/salvar_kanboard.php';
@@ -19,25 +23,28 @@ class kanboard_tabela_tarefas{
         $this->_linkCriacaoTarefas = $param['link_criacao'] ?? '/criar.php';
         
         $this->_id = $projeto;
-        $cabs_param = $dados['colunas'];
-        foreach ($cabs_param as $param_atual){
-            $cab_novo = new kanboard_cabecalho_coluna($param_atual);
-            $pos = $cab_novo->getPosicaoColuna();
-            $id_coluna = $cab_novo->getIdColuna();
-            $this->_cabs[$pos] = $cab_novo;
-            unset($cab_novo);
-            $this->_tarefas[$pos] = new kanboard_coluna_tarefas($param_atual, $id_coluna, $this->_id);
+        
+        $raias = $dados['raias'];
+        foreach ($raias as $r){
+            $this->_raias[] = new kanboard_raia($r);
         }
-        ksort($this->_cabs);
-        ksort($this->_tarefas);
+        
+        $this->_num_raias = count($this->_raias);
+        $chaves_raias = array_keys($this->_raias);
+        $this->_num_colunas = $this->_raias[$chaves_raias[0]]->getNumColunas();
     }
     
     public function __toString(){
-        $ret = '<div id="board-container" class>';
+        $ret = '<div id="board-container">';
         $ret .= $this->montarTagTable();
         
+        /*
         $ret .= $this->renderizarCabecalho();
         $ret .= $this->renderizarTarefas();
+        */
+        foreach ($this->_raias as $r){
+            $ret .= $r;
+        }
         
         $ret .= '</table>';
         $ret .= '</div>';
@@ -62,7 +69,7 @@ class kanboard_tabela_tarefas{
     }
     
     private function montaStyle(){
-        return '"--color-primary: #333;
+        return ' style="--color-primary: #333;
     --color-light: #999;
     --color-lighter: #dedede;
     --color-dark: #000;
@@ -118,7 +125,6 @@ class kanboard_tabela_tarefas{
     text-rendering: optimizeLegibility;
     margin: 0;
     padding: 0;
-    width: 100%;
     border-collapse: collapse;
     border-spacing: 0;
     table-layout: fixed;
@@ -128,7 +134,10 @@ class kanboard_tabela_tarefas{
     text-align: initial;
     color: initial;
     font-size: initial;
-    box-sizing: initial;"';
+    box-sizing: initial;
+' . ($this->_num_colunas > 1 ? '' : 'width: 100%') . 
+'
+    "';
     }
     
     private function renderizarCabecalho(){

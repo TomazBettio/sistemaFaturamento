@@ -2,7 +2,7 @@
 
 if($config['producao'] === true){
 	$config['db_banco2'] 	= 'postgres';
-	$config['db_server2'] 	= '192.168.1.12';
+	$config['db_server2'] 	= '192.168.2.12';
 	$config['db_database2'] = 'marpa_new';
 	$config['db_usuario2'] 	= 'postgres';
 	$config['db_senha2'] 	= 'e0w2c0i8u2n3';
@@ -115,7 +115,7 @@ function queryTRIB($sql, $debugQuery = false, $debugRet = false){
 }
 
 function conectaCONSULT() {
-	global $config, $dbTRIB;
+	global $config, $dbCONSULT;
 	
 	if($config['producao'] === true){
 		$config['db_bancoCONSULT'] 	= 'pdo';

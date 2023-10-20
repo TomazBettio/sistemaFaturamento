@@ -36,6 +36,9 @@ class pagina{
 	// Variavel com JS (a ser declarado dentro de <script language="JavaScript"></script>)
 	private  $_javaScript = [];
 	
+	// Variavel com CSS (a ser declarado dentro de <style></style>)
+	private  $_styleLinhas = [];
+	
 	// Variavel a ser adicinada dentro da funcao inicial do jquery
 	private  $_jquery = [];
 	
@@ -66,6 +69,7 @@ class pagina{
 		$this->preparaPagina();
 		
 		$this->consumirFilaMensagens();
+//print_r(getAppVar('fila_mensagens'));
 		
 		$ret .= $this->geraHTML();
 		
@@ -76,10 +80,11 @@ class pagina{
 	 * Verifica se foi solicitado logout
 	 */
 	function verificaLogout(){
-		if (isset($_GET['menu']) && $_GET['menu']=='logout'){
+		$menu = $_GET['menu'] ?? '';
+		if ($menu == 'logout'){
 			session_unset();
 			session_destroy();
-			//exit;
+			redireciona('index.php');
 		}
 	}
 	
@@ -91,27 +96,53 @@ class pagina{
 	function login($pagina = 'login.php'){
 		global $app;
 		
+		$testar_troca_senha = true;
 		if(!$app->logado()){
 			$login = new login($pagina);
 			$ret = $login->loginPagina($pagina);
 			if($ret === false){
+			    $testar_troca_senha = false;
 				include_once $pagina;
 				session_unset();
 				session_destroy();
 				exit;
-				
 			}
+		}
+		if($testar_troca_senha){
+		    //verifica se o usuário deve trocar de senha
+    	    $trocarSenha = getAppVar('trocarSenha');
+    	    if($trocarSenha === null){
+    	        $sql = "select * from sys001 where user = '" . getUsuario() . "' and trocarSenha = 'S'";
+    	        $rows = query($sql);
+    	        if(is_array($rows) && count($rows) > 0){
+    	            putAppVar('trocarSenha', 'S');
+    	            $trocarSenha = 'S';
+    	        }
+    	        else{
+    	            putAppVar('trocarSenha', 'N');
+    	            $trocarSenha = 'N';
+    	        }
+    	    }
+    	    if($trocarSenha === 'S'){
+    	        global $config;
+    	        $token = geraStringAleatoria(20);
+    	        $sql = "insert into sys910 values ('$token', '" . getUsuario() . "', CURRENT_TIMESTAMP)";
+    	        query($sql);
+    	        $link = $config['raiz'] . "recuperarSenha.php?chave=$token&tipo=T";
+    	        echo '<script>window.location.href = "' . $link . '";</script>';
+    	        die();
+    	    }
 		}
 	}
 	
-	//------------------------------------------------------------------ Adiciona Recursos
-	public function addMensagem($mensagem, $cor){
-		$temp = [];
-		$temp['msg'] 	= $mensagem;
-		$temp['cor'] 	= $cor;
-		
-		$this->_mensagens[] = $temp;
+	/**
+	 *
+	 */
+	private function menuAlteraMenu(){
+		$this->addJquery('$(".nav-link").click(function(){$.ajax({url: "ajax.php?menu=intranet.menu_colapse.ajax"});});');
 	}
+	
+	//------------------------------------------------------------------ Adiciona Recursos
 	
 	/**
 	 * Inclui links de estilo a página
@@ -184,9 +215,10 @@ class pagina{
 			}
 		}
 		$programaLink = $this->_modulo.'.'.$this->_classe;
+		$menuLink = $programaLink.'.'.$this->_metodo;
 		
 //echo "{$this->_modulo},{$this->_classe},{$this->_metodo},{$this->_operacao} <br>\n";
-		if($this->verificaPermissaoUsuario($programaLink)){
+		if($this->verificaPermissaoUsuario($programaLink,$menuLink)){
 			$obj =&CreateObject($this->_modulo.'.'.$this->_classe );
 			if(is_array($obj->funcoes_publicas) && isset($obj->funcoes_publicas[$this->_metodo])){
 				$metodo = $this->_metodo;
@@ -216,7 +248,7 @@ class pagina{
 		}
 	}
 	
-	private function verificaPermissaoUsuario($programa){
+	private function verificaPermissaoUsuario($programa, $menuLink){
 		$ret = false;
 		
 		$sql = "SELECT programa, perm FROM sys115 WHERE user = '".getUsuario()."' AND programa LIKE '".$programa."%' AND perm = 'S'";
@@ -227,11 +259,10 @@ class pagina{
 		
 		//Verifica se não é um programa liberado
 		if(!$ret){
-			$sql = "SELECT programa, perm FROM sys116 WHERE programa LIKE '".$programa."%' AND perm = 'S'";
+			$sql = "SELECT programa, perm FROM sys116 WHERE (programa LIKE '$programa' OR programa LIKE '$menuLink') AND perm = 'S'";
 			$rows = query($sql);
 			if(isset($rows[0][0])){
-				$pos = strrpos($rows[0][0], '.');
-				if(substr($rows[0][0], 0,$pos) == $menuLink && $rows[0][1] == 'S'){
+				if(($rows[0][0] == $menuLink || $rows[0][0] == $programa) && $rows[0][1] == 'S'){
 					$ret = true;
 				}
 			}
@@ -259,6 +290,13 @@ class pagina{
 	private function geraHTML(){
 		global $nl, $config;
 		$ret = '';
+
+		//Adiciona script para gravar a opção de recolher/expandir o menu
+		$this->menuAlteraMenu();
+		$menu_colapse = '';
+		if($config['sidebar_collapse']){
+			$menu_colapse = 'sidebar-collapse';
+		}
 		
 		$ret .= '<!DOCTYPE html>'.$nl;
 		$ret .= '<html lang="pt-BR">'.$nl;
@@ -275,10 +313,15 @@ class pagina{
 		$ret .= $this->getJS('I');
 		$ret .= $this->getJquery('I');
 		$ret .= $this->getJavaScript('I');
+		$ret .= $this->getStyle('I');
 		
 		$ret .= '</head>'.$nl;
 		$bodyClass = implode(' ', $this->_bodyClass);
-		$ret .= '<body class="sidebar-mini layout-fixed text-sm '.$bodyClass.'">'.$nl; //layout-fixed
+		if($config['tws_pag']['menu']){
+			$ret .= '<body class="sidebar-mini layout-fixed text-sm '.$bodyClass.' '.$menu_colapse.'">'.$nl; //layout-fixed
+		}else{
+			$ret .= '<body class="layout-top-nav" style="height: auto;">';
+		}
 		$ret .= '	<div class="wrapper">'.$nl;
 		
 		if(!empty($config['preloader'])){
@@ -296,7 +339,9 @@ class pagina{
 		}
 		$ret .= $this->geraContent($this->_principalString);
 		$ret .= $this->geraFooter();
-		$ret .= $this->geraControlSidebar();
+		if(issetAppVar('conteudoControlSidebar')){
+		  $ret .= $this->geraControlSidebar();
+		}
 		
 		$ret .= '	</div>'.$nl;
 
@@ -346,6 +391,9 @@ class pagina{
 		}
 		if($config['fullScreen']){
 			$ret .= $this->geraFullScreen();
+		}
+		if(issetAppVar('conteudoControlSidebar')){
+		    $ret .= $this->gerarInfo();
 		}
 		if($config['botaoLogout']){
 			$ret .= $this->geraLogout();
@@ -432,7 +480,9 @@ class pagina{
 	}
 	
 	private function geraPerfilSidebar(){
-		global $config, $nl;
+		global $nl;
+		$perfil = "index.php?menu=admin.perfil.index";
+		
 		$ret = '';
 		
       	$ret .= '	<div class="user-panel mt-3 pb-3 mb-3 d-flex">'.$nl;
@@ -440,7 +490,7 @@ class pagina{
         $ret .= '  			<img src="'.getUsuario('avatar').'" class="img-circle elevation-2" alt="User Imagem">'.$nl;
         $ret .= '		</div>'.$nl;
         $ret .= '		<div class="info">'.$nl;
-        $ret .= '  			<a href="#" class="d-block">'.getUsuario('nome').'</a>'.$nl;
+        $ret .= '  			<a href="' . $perfil . '" class="d-block">'.getUsuario('nome').'</a>'.$nl;
         $ret .= '		</div>'.$nl;
       	$ret .= '	</div>'.$nl;
 
@@ -448,10 +498,11 @@ class pagina{
 	}
 	
 	private function geraContent($conteudo){
-		global $nl;
+		global $config, $nl;
 		$ret = '';
 		
-		$ret .= '<div class="content-wrapper">'.$nl;
+		$content = $config['content-wrapper'] ?? '';
+		$ret .= '<div class="content-wrapper '.$content.'">'.$nl;
 		
 		$ret .= '	<div class="content-header">'.$nl;
 		$ret .= '		'.$nl;
@@ -504,15 +555,30 @@ class pagina{
 		global $nl;
 		$ret = '';
 		
-		$ret .= '	<aside class="control-sidebar control-sidebar-dark">'.$nl;
+	    $conteudos = getAppVar('conteudoControlSidebar');
+		$ret .= '	<aside class="control-sidebar control-sidebar-dark" style="overflow-y: auto;">'.$nl;
 		$ret .= '	<!-- Control sidebar content goes here -->'.$nl;
+		$ret .= '       <div class="p-3">'.$nl;
+		if(is_array($conteudos)){
+		    foreach($conteudos as $conteudo){
+		        $ret .= $conteudo;
+		    }
+		}
+		else{
+		    $ret .= $conteudos;
+		}
+		unsetAppVar('conteudoControlSidebar');
+		//$ret .= 	$app->getDoc();
+
+		$ret .= '       </div>'.$nl;
 		$ret .= '	</aside>'.$nl;
+		
 		
 		return $ret;
 	}
 	
 	private function geraNavbarSearch(){
-		global $nl;
+        global $nl;
 		$ret = '';
 		
 		$ret .= '				<!-- Navbar Search -->'.$nl;
@@ -536,7 +602,6 @@ class pagina{
 		$ret .= '						</form>'.$nl;
 		$ret .= '					</div>'.$nl;
 		$ret .= '				</li>'.$nl;
-		
 		return $ret;
 	}
 	
@@ -652,6 +717,19 @@ class pagina{
 		return $ret;
 	}
 	
+	private function gerarInfo(){
+	    global $nl;
+	    $ret = '';
+	    
+        $ret .= '   <li class= "nav-item">'.$nl;
+	    $ret .= '	    <a href="#" data-widget="control-sidebar" controlsidebarSlide="false" class="nav-link" role="button">'.$nl;
+	    $ret .= '	        <i class="fa fa-info"></i>'.$nl;
+	    $ret .= '		</a>'.$nl;
+	    $ret .= '	</li>'.$nl;
+	    
+	    return $ret;
+	}
+	
 	private function geraLogout(){
 		global $nl;
 		$ret = '';
@@ -709,6 +787,7 @@ class pagina{
 		
 		if(isset($this->_js[$pos]) && count($this->_js[$pos]) > 0){
 			foreach ($this->_js[$pos] as $js){
+			    $modulo = '';
 				$link = '';
 				switch ($js['tipo']) {
 					case 'link':
@@ -717,11 +796,13 @@ class pagina{
 					case 'plugin':
 						$link = $config['plugins'].$js['link'];
 						break;
+					case 'modulo':
+					    $modulo = 'type="module"';
 					default:
 						$link = $config['js'].$js['link'];
 						break;
 				}
-				$ret .= '	<script src="'.$link.'"></script>'.$nl;
+				$ret .= '	<script ' . $modulo . ' src="'.$link.'"></script>'.$nl;
 			}
 		}
 		return $ret;
@@ -759,6 +840,20 @@ class pagina{
 		return $ret;
 	}
 	
+	private function getStyle($pos = 'I'){
+		global $nl;
+		$ret = '';
+		
+		if(isset($this->_styleLinhas[$pos]) && count($this->_styleLinhas[$pos]) > 0){
+			$ret .= '	<style type="text/css">'.$nl;
+			foreach ($this->_styleLinhas[$pos] as $item){
+				$ret .= '		'.$item.$nl;
+			}
+			$ret .= '	</style>'.$nl;
+		}
+		
+		return $ret;
+	}
 	
 	/**
 	 * Imprime alerta - erro-vermelho, info-azul, atencao-amarelo, qualquer outro - verde
@@ -834,6 +929,13 @@ class pagina{
 			$this->_footerClass[] = $class;
 		}
 	}
+	
+	public function addStyleLinha($string, $posicao = 'I'){
+		$posicao = strtoupper($posicao);
+		$posicao = $posicao != 'F' ? 'I' : 'F';
+		$this->_styleLinhas[$posicao][] = $string;
+	}
+	
 	
 	public function addJavascript($string, $posicao = 'I'){
 		$posicao = strtoupper($posicao);

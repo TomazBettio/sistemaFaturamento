@@ -102,7 +102,8 @@ class monofasico_pdf_relatorio
 			'selecionado',
 			'qtd',
 			'cod_item',
-			'filial'
+			'filial',
+			'cnpj_forn'
 		];
 		$this->log('Instanciada a classe');
 	}
@@ -485,7 +486,7 @@ class monofasico_pdf_relatorio
 		$ret = [];
 		$sort = []; // array de ordenação
 		$dados = $this->recuperaArquivo();
-		// print_r($dados);
+ //print_r($dados);die();
 		// $arquivo = $this->_path . $this->_cnpj . DIRECTORY_SEPARATOR . 'arquivos/resultado.vert';
 		// $arquivo = file($arquivo);
 		foreach ($dados as $dado) {
@@ -509,6 +510,7 @@ class monofasico_pdf_relatorio
 
 			$sort[$anoMes][$filial][$dado['ncm']][] = $temp;
 		}
+//print_r($sort);
 		$mesesAmostrar = array_keys($sort);
 		sort($mesesAmostrar);
 		// print_r($mesesAmostrar);
@@ -606,7 +608,7 @@ class monofasico_pdf_relatorio
 	private function log($mensagem)
 	{
 		if (!empty($mensagem)) {
-			log::gravaLog('monofasico_pdf_' . $this->_cnpj, $mensagem);
+			log::gravaLog('monofasico_processa'.DIRECTORY_SEPARATOR.'monofasico_pdf_' . $this->_cnpj, $mensagem);
 		}
 	}
 }

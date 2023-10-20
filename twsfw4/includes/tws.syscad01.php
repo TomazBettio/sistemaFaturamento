@@ -162,13 +162,21 @@ class syscad01{
 		return $ret;
 	}
 	
-	public function getEstruturaForm(){
+	public function getEstruturaForm($prefixo_campo = ''){
 		$ret = [];
 		
 		foreach ($this->_sys003 as $campos){
 			$temp = [];
 			
-			$temp['campo'] = $campos['campo'];
+			$col_i = '';
+			$col_f = '';
+			if(!empty($prefixo_campo)){
+				$col_i = '[';
+				$col_f = ']';
+			}
+			
+			$temp['campo'] 		= $prefixo_campo.$col_i.$campos['campo'].$col_f;
+			$temp['campoBD'] 	= $campos['campo'];		// Nome do campo no banco de dados
 			$temp['etiqueta']	= $campos['etiqueta'];
 			$temp['tipo']		= $campos['tipo'];
 			$temp['tamanho']	= $campos['tamanho'];

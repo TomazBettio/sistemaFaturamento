@@ -8,6 +8,7 @@
 
 if(!defined('TWSiNet') || !TWSiNet) die('Esta nao e uma pagina de entrada valida!');
 
+#[\AllowDynamicProperties]
 class app{
 	
 	//ID do usuário na SYS001
@@ -41,7 +42,7 @@ class app{
 		
 		$this->_userID	= $dados['id'];
 		$this->_user	= $dados['user'];
-		$this->_userLingua = $dados['lingua'];
+		$this->_userLingua = $dados['lingua'] ?? '';
 		foreach ($dados as $chave => $valor) {
 			if ($chave != "senha"){
 				$this->_usuario[$chave] = $valor;

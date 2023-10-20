@@ -71,6 +71,15 @@ class tabela_gmail01{
 		$this->_retorno .= '<br>'.$nl;
 	}
 	
+	/**
+	 * Adiciona uma linha em branco (com uma só coluna do tamanho da tabela)
+	 */
+	public function addLinhaBranco(){
+		$this->abreTR();
+		$this->abreTD('&nbsp;&nbsp;',$this->_quantColunas);
+		$this->fechaTR();
+	}
+	
 	function abreTR($titulo = false){
 		global $nl;
 		if($titulo){
