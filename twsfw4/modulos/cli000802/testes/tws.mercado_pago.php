@@ -13,19 +13,19 @@ class mercado_pago{
     
     function index(){
         
-        //$rest = new integra_mercado_pago('APP_USR-5519747617154394-060809-50b0f7c42660975ecc0639392e43e32b-260662116');
-        /*
+        $rest = new integra_mercado_pago('APP_USR-5519747617154394-060809-50b0f7c42660975ecc0639392e43e32b-260662116');
+        
         $filtro = array(
             'begin_date' => '2019-05-01T00:00:00Z',
             'end_date' => '2019-06-01T00:00:00Z',
         );
         $resposta = $rest->gerarRelatorio($filtro);
         var_dump($resposta);
-        */
         
-        //$rest->baixarRelatorio($rest->pesquisarUltimoRelatorio(), 'jawiubc.csv');
-        $chave = 'de34c296-8394-4d64-bcc5-43d64fbe0757';
-        $rest = new integra_clicksign($chave, true);
+        
+        $rest->baixarRelatorio($rest->pesquisarUltimoRelatorio(), 'jawiubc.csv');
+        //$chave = 'de34c296-8394-4d64-bcc5-43d64fbe0757';
+        //$rest = new integra_clicksign($chave, true);
         /*
         $dados = array(
             'Empresa' => 'p1',

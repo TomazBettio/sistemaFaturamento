@@ -18,6 +18,7 @@ class sdm_tarefas{
 			'excluir'       => true,
 			'faturamento'   => true,
 			'ajax'          => true,
+			'gravaOS'		=> true,
 	);
 	
 	//Titulo
@@ -26,7 +27,7 @@ class sdm_tarefas{
 	//Programa
 	private $_programa;
 	
-	function __construct(){
+	public function __construct(){
 		$this->_titulo ='Tarefas';
 		$this->_programa = get_class($this);
 		
@@ -88,7 +89,7 @@ class sdm_tarefas{
 		$p['cor'] 		= 'success';
 		
 		$param['botoesTitulo'][] = $p;
-		if(getUsuario('tipo') == 'S' || getUsuario('tipo') == 'A'){
+		if(verificarAcaoSys016(getUsuario(), 'faturar_tarefa')){
 			$p = array('onclick' => "setLocation('" . getLink() . "faturamento')",'texto' => 'Faturamento', 'cor' => 'light');
 			$param['botoesTitulo'][] = $p;
 		}
@@ -210,6 +211,61 @@ class sdm_tarefas{
 	}
 	
 	
+	public function excluir(){
+		$id = getParam($_GET, 'id', 0);
+		if($id != '0'){
+			$id = base64_decode($id);
+		}
+		if(!$this->validaEdita($id)){
+			addPortalMensagem("", "Você não tem permissão para alterar essa tarefa", 'erro');
+			return $this->index();
+		}else{
+			query("UPDATE sdm_tarefas SET del = 'S' WHERE id = $id ");
+		}
+		return $this->index();
+	}
+	
+	public function faturamento(){
+		$cliente = getParam($_POST, 'selecionaCliente', '');
+		if($cliente==''){
+			return $this->formInicial($cliente) . '';
+		}
+		else{
+			$dados = $this->getDadosFat($cliente);
+			return $this->formSecundario($dados, $cliente) . '';
+		}
+	}
+	
+	public function gravaOS(){
+		$cliente = base64_decode(getParam($_GET, 'cliente'));
+		$tar = getParam($_POST, 'exportar');
+		
+		if(strlen($cliente) != 6 || count($tar) == 0){
+			if(count($tar) == 0){
+				addPortalMensagem('Não foi selecionadas tarefas.','error');
+			}
+			
+			if(strlen($cliente) != 6 || count($tar) == 0){
+				addPortalMensagem('Não foi possível identificar o cliente.','error');
+			}
+			redireciona(getLink().'index');
+		}
+		
+		$horas = getParam($_POST, 'totalHoras');
+		$os = $this->gravaCabOS($cliente, $horas, implode(',', $tar));
+		
+		if($os !== false && $os > 0){
+			$tarefas = $this->getTarefasOS($tar);
+			$this->gravaItensOS($os, $tarefas, implode(',', $tar));
+			addPortalMensagem("OS $os gerada com sucesso!.");
+			redireciona("index.php?menu=sdm_os.listar_os.editar&id=$os");
+		}else{
+			addPortalMensagem('Erro ao gravar o cabeçalho da OS.','error');
+		}
+		
+		redireciona(getLink().'index');
+	}
+	
 	//Pega os dados da tabela
 	private function getDados($filtro, $id = 0){
 		$ret = [];
@@ -246,17 +302,17 @@ class sdm_tarefas{
 		$sql = "
 				SELECT
 					sdm_tarefas.*,
-					cad_clientes.nreduz,
-					cad_recursos.apelido
+					cad_organizacoes.nreduz,
+					sdm_recursos.apelido
 				FROM
 					sdm_tarefas,
-					cad_clientes,
-					cad_recursos
+					cad_organizacoes,
+					sdm_recursos
 				WHERE
 					sdm_tarefas.del <> '*'
 					$where
-					AND sdm_tarefas.cliente = cad_clientes.cod
-					AND sdm_tarefas.usuario = cad_recursos.usuario
+					AND sdm_tarefas.cliente = cad_organizacoes.cod
+					AND sdm_tarefas.usuario = sdm_recursos.usuario
 				";
 //echo "$sql <br>\n";
 					$rows = query($sql);
@@ -301,8 +357,6 @@ class sdm_tarefas{
 		return $ret;
 	}
 	
-	
-	
 	private function getId(){
 		$ret = 1;
 		$rows = query("SELECT MAX(id) FROM sdm_tarefas where cliente = '".self::getClienteUsuario()."'");
@@ -310,32 +364,6 @@ class sdm_tarefas{
 			$ret = $ret + $rows[0][0];
 		}
 		return $ret;
-	}
-	
-	
-	public function excluir(){
-		$id = getParam($_GET, 'id', 0);
-		if($id != '0'){
-			$id = base64_decode($id);
-		}
-		if(!$this->validaEdita($id)){
-			addPortalMensagem("", "Você não tem permissão para alterar essa tarefa", 'erro');
-			return $this->index();
-		}else{
-			query("UPDATE sdm_tarefas SET del = 'S' WHERE id = $id ");
-		}
-		return $this->index();
-	}
-	
-	public function faturamento(){
-		$cliente = getParam($_POST, 'selecionaCliente', '');
-		if($cliente==''){
-			return $this->formInicial($cliente) . '';
-		}
-		else{
-			$dados = $this->getDadosFat($cliente);
-			return $this->formSecundario($dados) . '';
-		}
 	}
 	
 	private function formInicial($cliente){
@@ -376,7 +404,7 @@ class sdm_tarefas{
 		return $ret;
 	}
 	
-	private function formSecundario($dados){
+	private function formSecundario($dados, $cliente){
 		global $nl;
 		$ret = '';
 		$bw = new tabela01(array('paginacao' => false));
@@ -384,10 +412,10 @@ class sdm_tarefas{
 		//Caixa de seleção
 		$bw->addColuna(array('campo' => 'sel' 			, 'etiqueta' => ''					,'tipo' => 'T', 'width' =>  80, 'posicao' => 'C'));
 		$bw->addColuna(array('campo' => 'id' 			, 'etiqueta' => '#'					,'tipo' => 'T', 'width' =>  80, 'posicao' => 'C'));
-		$bw->addColuna(array('campo' => 'descricao' 	, 'etiqueta' => 'Descrição'			,'tipo' => 'T', 'width' => 300, 'posicao' => 'E'));
 		$bw->addColuna(array('campo' => 'data' 			, 'etiqueta' => 'Data'				,'tipo' => 'D', 'width' =>  80, 'posicao' => 'C'));
-		$bw->addColuna(array('campo' => 'solicitante' 	, 'etiqueta' => 'Solicitante'		,'tipo' => 'T', 'width' => 150, 'posicao' => 'E'));
 		$bw->addColuna(array('campo' => 'tempo' 		, 'etiqueta' => 'Tempo'				,'tipo' => 'T', 'width' =>  10, 'posicao' => 'C'));
+		$bw->addColuna(array('campo' => 'solicitante' 	, 'etiqueta' => 'Solicitante'		,'tipo' => 'T', 'width' => 150, 'posicao' => 'E'));
+		$bw->addColuna(array('campo' => 'descricao' 	, 'etiqueta' => 'Descrição'			,'tipo' => 'T', 'width' => 300, 'posicao' => 'E'));
 		$bw->addColuna(array('campo' => 'apelido'		, 'etiqueta' => 'Recurso'			,'tipo' => 'T', 'width' =>  10, 'posicao' => 'C'));
 		
 		$this->addJS();
@@ -436,10 +464,15 @@ class sdm_tarefas{
 		
 		$ret .= $bw;
 		
+		$paramTotal = [];
+		$paramTotal['nome'] = 'totalHoras';
+		$paramTotal['valor'] = '00:00';
+		$ret .= formbase01::formHidden($paramTotal);
+		
 		$param_form = array(
-				'acao' => 'index.php?menu=sdm_os.listar_os.editar',
-				'id' => 'formExportar',
-				'nome' => 'formExportar',
+			'acao' => getLink() . 'gravaOS&cliente='.base64_encode($cliente),
+			'id' => 'formExportar',
+			'nome' => 'formExportar',
 		);
 		$ret = formbase01::form($param_form, $ret);
 		$param['titulo'] = 'Faturamento';
@@ -469,7 +502,7 @@ function ValTotal(){
 				var valTotal = '0:00';
 				inputs2.each(function(){
 					if($(this).prop('checked')){
-                        valorT = $(this).parent().parent().find('td')[5].innerHTML;
+                        valorT = $(this).parent().parent().find('td')[3].innerHTML;
 				
                         hora1 = getHora(valorT);
                     	hora2 = getHora(valTotal);
@@ -495,6 +528,7 @@ function ValTotal(){
 	 			 });
 				
                 $('#formValSelecionados').val(valTotal);
+				$('#totalHoras').val(valTotal);
 			}
 				
 function getHora(horas){
@@ -536,7 +570,7 @@ function getMinuto(horas){
 	private function getDadosFat($cliente = ''){
 		$ret = [];
 		$colunas = array('id', 'descricao', 'data', 'tempo', 'usuario', 'solicitante');
-		$sql = "SELECT * FROM sdm_tarefas WHERE del <> '*' AND os = 0  AND cliente = '$cliente' and usuario = '" . getUsuario() . "'";
+		$sql = "SELECT * FROM sdm_tarefas WHERE del <> '*' AND os = 0  AND cliente = '$cliente' ORDER BY data";
 		$rows = query($sql);
 		
 		if (is_array($rows) && count($rows) > 0){
@@ -620,4 +654,103 @@ function getMinuto(horas){
 		return $ret;
 	}
 	
+	private function gravaCabOS($cliente, $horas, $tarefas){
+		global $config;
+		$campos = [];
+		$campos['cliente'] 		= $config['cliente'];
+		$campos['emp'] 			= '1';
+		$campos['user'] 		= getUsuario();
+		$campos['data'] 		= date('Ymd');
+		$campos['os_cliente'] 	= $cliente;
+		$campos['modulo'] 		= 'Diversos';
+		$campos['projeto'] 		= '';
+		$campos['restricao'] 	= '000001';
+		$campos['pessoa'] 		= '';
+		$campos['servico'] 		= '';
+		$campos['hora_ini']		= '00:00';
+		$campos['hora_fim'] 	= $horas;
+		$campos['hora_trans'] 	= '00:00';
+		$campos['hora_add'] 	= '00:00';
+		$campos['hora_sub'] 	= '00:00';
+		$campos['hora_total'] 	= $horas;
+		$campos['observacao'] 	= '';
+		$campos['obs_int'] 		= '';
+		$campos['faturado'] 	= '';
+		$campos['dtfatura'] 	= '';
+		$campos['comissao'] 	= '';
+		$campos['dt_comissao'] 	= '';
+		$campos['entregue'] 	= '';
+		$campos['dt_ent'] 		= '';
+		$campos['user_ent'] 	= '';
+		$campos['coordenador'] 	= '';
+		$campos['tarefas']		= $tarefas;
+		$campos['del'] 			= 'N';
+		
+		$sql = montaSQL($campos, 'sdm_os');
+		$nr_os = query($sql);
+		
+		return $nr_os;
+	}
+
+	private function getTarefasOS($tarefas){
+		$ret = [];
+		
+		$sql = "SELECT * FROM sdm_tarefas WHERE del <> 'N' AND id IN (".implode(',', $tarefas).") ORDER BY data";
+		$rows = query($sql);
+		
+		if(is_array($rows) && count($rows) > 0){
+			foreach ($rows as $row){
+				$temp = [];
+				
+				$temp['id'] 		= $row['id'];
+				$temp['projeto'] 	= $row['projeto'];
+				$temp['solicitante']= $row['solicitante'];
+				$temp['descricao'] 	= $row['descricao'];
+				$temp['data'] 		= $row['data'];
+				$temp['tempo'] 		= $row['tempo'];
+				$temp['ticket'] 	= $row['ticket'];
+				$temp['fat'] 		= $row['fat'];
+				$temp['libfat'] 	= $row['libfat'];
+
+				$ret[] = $temp;
+			}
+		}
+		
+		return $ret;
+	}
+
+	private function gravaItensOS($os, $tarefas, $listaTarefas){
+		global $config;
+		
+		//Grava os itens da OS
+		foreach ($tarefas as $tarefa){
+			$campos = [];
+			$campos['cliente'] 		= $config['cliente'];
+			$campos['emp'] 			= '1';
+			$campos['fil'] 			= '1';
+			$campos['os'] 			= $os;
+			$campos['projeto'] 		= $tarefa['projeto'];
+			$campos['tarefa'] 		= $tarefa['id'];
+			$campos['ticket'] 		= $tarefa['ticket'];
+			$campos['horas'] 		= $tarefa['tempo'];
+			$campos['realizado'] 	= '100';
+			
+			$desc = datas::dataS2D($tarefa['data']);
+			if(!empty($tarefa['solicitante'])){
+				$desc .= ' - '.$tarefa['solicitante'];
+			}
+			$desc .= ' - '.$tarefa['descricao'];
+			
+			$campos['descricao'] 	= $desc;
+			$campos['tarefa_pro'] 	= '';
+			$campos['excluida'] 	= 'N';
+			
+			$sql = montaSQL($campos, 'sdm_os_itens');
+			query($sql);
+		}
+		
+		//Grava o nr da OS nas tarefas
+		$sql = "UPDATE sdm_tarefas SET os = '$os' WHERE id IN ($listaTarefas)";
+		query($sql);
+	}
 }

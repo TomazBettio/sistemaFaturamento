@@ -1,4 +1,6 @@
 <?php
+use function PHPUnit\Framework\stringEndsWith;
+
 /*
  * Data Criacao: 29/12/2021
  * Autor: Verticais - Thiel
@@ -23,6 +25,7 @@ class sdm_ticket{
 			'editar'		=> true,
 			'addHistorico'	=> true,
 	        'ajax'          => true,
+	        'upload'        => true,
 	);
 	
 	//Classe relatorio
@@ -50,6 +53,8 @@ class sdm_ticket{
 		$this->_titulo ='Tickets';
 		$this->_programa = get_class($this);
 		
+		$this->getNomeRecursos();
+		
 		if(false){
 			sys004::inclui(['programa' => $this->_programa, 'emp' => '', 'fil' => '', 'ordem' => '1', 'pergunta' => 'Cliente'					, 'variavel' => 'CLIENTE'         ,'tipo' => 'T', 'tamanho' => '8', 'decimal' => 0, 'validador' => '', 'tabela' => '', 'funcaodados' => 'SDM_getClientes()'			, 'tipo_2' => '', 'help' => '', 'inicializador' => '', 'inicfunc' => '', 'opcoes' => '']);
 			sys004::inclui(['programa' => $this->_programa, 'emp' => '', 'fil' => '', 'ordem' => '2', 'pergunta' => 'Responsável/Solicitante'	, 'variavel' => 'RESPONSAVEL'     ,'tipo' => 'T', 'tamanho' => '8', 'decimal' => 0, 'validador' => '', 'tabela' => '', 'funcaodados' => 'SDM_getResponsavel()'		, 'tipo_2' => '', 'help' => '', 'inicializador' => '', 'inicfunc' => '', 'opcoes' => '']);
@@ -57,6 +62,28 @@ class sdm_ticket{
 			sys004::inclui(['programa' => $this->_programa, 'emp' => '', 'fil' => '', 'ordem' => '4', 'pergunta' => 'Prioridade'				, 'variavel' => 'PRIORIDADE'      ,'tipo' => 'T', 'tamanho' => '6', 'decimal' => 0, 'validador' => '', 'tabela' => '', 'funcaodados' => 'tabela("000009","chave")'	, 'tipo_2' => '', 'help' => '', 'inicializador' => '', 'inicfunc' => '', 'opcoes' => '']);
 		}
 		
+		$JS = "
+                function enviarArquivoAnexo(id){
+                    var arquivo = document.getElementById('id_campo_anexo').files[0];
+                    var formData = new FormData();
+                    formData.append('arquivo', arquivo);
+                    var xhr = new XMLHttpRequest();
+                    xhr.onload = function() {
+                        if (xhr.status === 200) {
+                            // Requisição concluída com sucesso
+                            document.getElementById('idBlocoAnexo').innerHTML = xhr.response;
+                        }
+                    else {
+                            // Ocorreu um erro durante a requisição
+                            console.error('Ocorreu um erro durante a requisição.');
+                        }
+                    };
+                    var link_servidor = '" . getLinkAjax('salvarAnexo') . "' + '&id=' + id;
+                    xhr.open('POST', link_servidor, true);
+                    xhr.send(formData);
+                }
+";
+		addPortaljavaScript($JS);
 	}
 	
 	function index(){
@@ -137,7 +164,7 @@ class sdm_ticket{
 			$ticket['status']		= $formTkt['status'];
 			$ticket['responsavel']	= $formTkt['responsavel'];
 			$ticket['percentual']	= $formTkt['percentual'];
-			$ticket['fatura']		= $formTkt['faturado'];
+			$ticket['fatura']		= $formTkt['fatura'];
 			
 			$ticket['tempoest']	    = $formTkt['tempoest'];
 			$ticket['tempo']        = $formTkt['tempo'];
@@ -171,7 +198,6 @@ class sdm_ticket{
 	public function addHistorico(){
 		$ret = '';
 		$nrTicket = getAppVar($this->_programa.'_add_historico_ticket');
-		$this->getNomeRecursos();
 		$camposAlteraveis = ['tipo','prioridade', 'percentual', 'status', 'tipotkt', 'fatura', 'tempoest', 'tempo', 'dtiniprev', 'dtini', 'dtfimprev', 'dtfim', 'projeto'];
 		$tabelas = ['tipo' => '000008','prioridade' => '000009', 'percentual' => '000010', 'status' => '000011', 'tipotkt' => '000012', 'fatura' => '000013'];
 		$texto =  ['tipo' => 'TIPO','prioridade' => 'PRIORIDADE', 'percentual' => 'REALIZADO', 'status' => 'STATUS', 'tipotkt' => 'TICKET', 'fatura' => 'FATURAMENTO', 'projeto' => 'PROJETO'];
@@ -378,9 +404,6 @@ class sdm_ticket{
 				$paramPai['cor'] = 'bg-green';
 				
 				$filho = [];
-				//$filho['titulo'] = 'Apontamento: ';
-				//$filho['titSub'] = $atendimento['nometecnico'];
-				//$filho['hora'] = $atendimento['horaChegada'];
 				$filho['conteudo'] = $atendimento['apontamento'];
 				$filho['icone'] = 'fa-user';
 				$filho['iconeCor'] = 'bg-aqua';
@@ -388,11 +411,8 @@ class sdm_ticket{
 				
 				$filho = [];
 				$filho['titulo'] = 'Problema: ';
-				//$filho['titSub'] = $atendimento['problema'];
-				//$filho['hora'] = $historico['horaChegada'];
 				$filho['icone'] = 'fa-times-circle';
 				$filho['iconeCor'] = 'bg-red';
-				//$paramPai['filho'][] = $filho;
 				
 				$param['pai'][] = $paramPai;
 			}
@@ -419,7 +439,7 @@ class sdm_ticket{
 		$param['conteudo'] = $incluir;
 		$incluir = addCard($param);
 		
-		$anexos = '';
+		$anexos = $this->desenhaBlocoAnexo($ticket['id']);
 		$param = [];
 		$param['titulo'] = 'Anexos';
 		$param['conteudo'] = $anexos;
@@ -441,6 +461,111 @@ class sdm_ticket{
 		return $ret;
 	}
 	
+	private function desenhaBlocoAnexo($ticket)
+	{
+	    $ret = '';
+	    $tabela_anexos = new tabela01(['filtro' => false, 'info' => false, 'ordenacao' => false]);
+	    $tabela_anexos->addColuna(array('campo' => 'nome', 'etiqueta' => 'Arquivos'));
+	    
+	    $dados = array();
+	    $sql = "SELECT * FROM sdm_tkt_anexos WHERE ticket = $ticket";
+	    $rows = query($sql);
+	    
+	    $tipos_exibir = ['png', 'jpg'];
+	    if(is_array($rows) && count($rows) > 0){
+	        foreach ($rows as $row){
+	            //$html = '<a class="btn btn-tool" onclick="op2(\'' . getLinkAjax('mostrarAnexo') . "&id=$ticket&arquivo={$row['id']}')" . '">' . $row['arquivo'] . '</a>';
+	            $extensao = substr(strtolower($row['arquivo']), -3);
+	            $link = getLinkAjax('mostrarAnexo') . "&id=$ticket&arquivo=" . $row['id'];
+	            if(in_array($extensao, $tipos_exibir)){
+	                $html = '<a class="btn btn-tool" onclick="window.open(\'' . $link . '\', \'_blank\').focus();">' . $row['arquivo'] . '</a>';
+	            }
+	            else{
+	                //$html = '<a class="btn btn-tool" onclick="op2(\'' . getLinkAjax('mostrarAnexo') . "&id=$ticket&arquivo={$row['id']}')" . '">' . $row['arquivo'] . '</a>';
+	                $link .= "&download=1";
+	                $html = '<a class="btn btn-tool" href="' . $link . '" download>' . $row['arquivo'] . '</a>';
+	            }
+	            
+	            $temp = array(
+	                'nome' => $html,
+	            );
+	            $dados[] = $temp;
+	        }
+	    }
+	    $tabela_anexos->setDados($dados);
+	    
+	    $form = new form01();
+	    $form->addCampo(array('tipo' => 'F', 'nome' => 'id_campo_anexo', 'id' => 'id_campo_anexo', 'campo' => 'id_campo_anexo', 'estilo' => 'opacity:0'));
+	    $bt_enviar_arquivo = formbase01::formBotao(array('texto' => 'Enviar Arquivo', 'onclick' => "enviarArquivoAnexo('$ticket')"));
+	    $ret = '<div id="idBlocoAnexo">' . $tabela_anexos . '<br>' . $form . '<br>' . $bt_enviar_arquivo . '</div>';
+	    return $ret;
+	}
+
+	function salvarAnexo($id){
+	    if(isset($_FILES['arquivo']) && isset($_FILES['arquivo']['tmp_name'])){
+	        global $config;
+	        $dir = ($config['anexosticket'] ?? '/var/www/sdm/anexosticket/') . $id;
+	        if(!is_dir($dir)){
+	            mkdir($dir);
+	        }
+	        $origem = $_FILES['arquivo']['tmp_name'];
+	        $destino = $dir . '/' . $_FILES['arquivo']['name'];
+	        $arquivo_novo = pathinfo($destino, PATHINFO_BASENAME);
+	        
+	        if(file_exists($destino)){
+	            $i = 1;
+	            $nome_original = pathinfo($destino, PATHINFO_FILENAME);
+	            while(file_exists($destino)){
+	                $partes = pathinfo($destino);
+	                $arquivo_novo = $nome_original . "($i)." . $partes['extension'];
+	                $destino = $partes['dirname'] . '/' .  $arquivo_novo;
+	                $i++;
+	            }
+	        }
+	        
+            //echo $destino;
+	        if(move_uploaded_file($origem, $destino)){
+	           $sql = "insert into sdm_tkt_anexos values (null, $id, '$arquivo_novo')";
+	           query($sql);
+	        }
+	    }
+	    
+	    return $this->desenhaBlocoAnexo($id);
+	}
+	
+	function mostrarAnexo($id, $anexo, $download)
+	{
+	    $sql = "select * from sdm_tkt_anexos where ticket = $id and id = $anexo";
+	    $rows = query($sql);
+	    if(is_array($rows) && count($rows) > 0){
+	        $file = '/var/www/sdm/anexosticket/' . "$id/" . $rows[0]['arquivo'];
+	        $this->mostrarArquivo($file, $download);
+	    }
+	}
+	
+	function mostrarArquivo($file, $download){
+	    if(!empty($download)){
+	        header('Content-Description: File Transfer');
+	        header('Content-Type: application/octet-stream');
+	        header('Content-Disposition: attachment; filename='.basename($file));
+	        header('Content-Transfer-Encoding: binary');
+	        header('Expires: 0');
+	        header('Cache-Control: must-revalidate');
+	        header('Pragma: public');
+	        header('Content-Length: ' . filesize($file));
+	        header('Connection: close');
+	        ob_clean();
+	        flush();
+	        readfile($file);
+	    }
+	    else{
+	        header('Content-Type: image');
+	        header('Content-Length: ' . filesize($file));
+	        echo file_get_contents($file);
+	    }
+	    die();
+	}
+	
 	private function getListaEmailChamado($ticket){
 		$ret = '';
 		
@@ -454,7 +579,6 @@ class sdm_ticket{
 		
 		$param = [];
 		$param['nome'] = 'formAtendimento';
-		//$param['etiqueta'] = 'Produtos a Precificar';
 		$ret .= formbase01::formTextArea($param);
 		$param = [];
 		$param['onclick'] = "$('#adicionaHistorico').submit();";
@@ -537,7 +661,6 @@ class sdm_ticket{
 	
 	private function getDados($nrTicket = 0, $filtro = []){
 		$this->getNomeClientes();
-		$this->getNomeRecursos();
 		$this->_tickets = [];
 		$where = '';
 		
@@ -576,8 +699,6 @@ class sdm_ticket{
 			foreach ($rows as $row){
 				$temp = [];
 				
-				$resp 		= $this->getRecursos();
-				
 				$temp['id'			] 	= formataNum($row['id'], 6);
 				$temp['tipotkt'		] 	= $row['tipotkt'	];
 				$temp['tipotktDesc'	] 	= getTabelaDesc('000012',$row['tipotkt']);
@@ -593,7 +714,7 @@ class sdm_ticket{
 				$temp['prioridade'	] 	= $row['prioridade'];
 				$temp['prioridadeDesc'] = getTabelaDesc('000009',$row['prioridade']);
 				$temp['responsavel'	] 	= $row['responsavel'];
-				$temp['responsavelDesc']= $this->_recursos[$row['responsavel']];
+				$temp['responsavelDesc']= $this->_recursos[$row['responsavel']] ?? '';
 				$temp['data'		] 	= $row['data'		];
 				$temp['percentual'	] 	= $row['percentual'];
 				$temp['percentualDesc'] = getTabelaDesc('000010',$row['percentual']);
@@ -657,7 +778,7 @@ class sdm_ticket{
 		$ret[0][0] = "";
 		$ret[0][1] = "&nbsp;";
 		
-		$sql = "SELECT cod, nreduz FROM cad_clientes WHERE ativo = 'S' ORDER BY nreduz";
+		$sql = "SELECT cod, nreduz FROM cad_organizacoes WHERE ativo = 'S' ORDER BY nreduz";
 		$rows = query($sql);
 		
 		if(is_array($rows) && count($rows) > 0){
@@ -673,7 +794,7 @@ class sdm_ticket{
 	}
 	
 	private function getNomeClientes(){
-		$sql = "SELECT cod, nreduz FROM cad_clientes";
+		$sql = "SELECT cod, nreduz FROM cad_organizacoes";
 		$rows = query($sql);
 		
 		if(is_array($rows) && count($rows) > 0){
@@ -693,7 +814,7 @@ class sdm_ticket{
 		$ret[0][0] = "";
 		$ret[0][1] = "&nbsp;";
 		
-		$sql = "SELECT usuario, nome, apelido FROM cad_recursos WHERE ativo = 'S' ORDER BY $campo";
+		$sql = "SELECT usuario, nome, apelido FROM sdm_recursos WHERE ativo = 'S' ORDER BY $campo";
 		$rows = query($sql);
 		
 		if(is_array($rows) && count($rows) > 0){
@@ -708,7 +829,7 @@ class sdm_ticket{
 	}
 	
 	private function getNomeRecursos(){
-		$sql = "SELECT usuario, apelido FROM cad_recursos";
+		$sql = "SELECT usuario, apelido FROM sdm_recursos";
 		$rows = query($sql);
 		
 		if(is_array($rows) && count($rows) > 0){
@@ -937,37 +1058,46 @@ class sdm_ticket{
 	}
 	
 	public function ajax(){
-	    global $app;
+	    $op = getOperacao();
 	    
-	    $GLOBALS['tws_pag'] = array(
-	        'header'   	=> false, //Imprime o cabeçalho (no caso de ajax = false)
-	        'html'		=> false, //Imprime todo html (padão) ou só o processamento principal?
-	        'menu'   	=> false,
-	        'content' 	=> false,
-	        'footer'   	=> false,
-	        'onLoad'	=> '',
-	    );
+	    switch ($op)
+	    {
+	        case'salvarAnexo':
+	            $id = getParam($_GET, 'id', 0);
+	            return $this->salvarAnexo($id);
+	            break;
+	        case 'mostrarAnexo':
+	            $id = getParam($_GET, 'id', 0);
+	            $anexo = $_GET['arquivo'] ?? '';
+	            $download = $_GET['download'] ?? '';
+	            return $this->mostrarAnexo($id, $anexo, $download);
+	            break;
+	        case 'getProjetosCliente':
+	            $ret = [];
 	    
-	    $ret = [];
 	    
-	    
-	    $ret[] = array('valor' => '', 'etiqueta' => '');
-	    $cliente = getParam($_GET, 'cliente', '');
-	    
-	    if($cliente != ''){
-	        $sql = "select * from sdm_projetos where cliente = '$cliente'";
-	        $rows = query($sql);
-	        if(is_array($rows) && count($rows) > 0){
-	            foreach ($rows as $row){
-	                $temp = array(
-	                    'valor' => $row['id'],
-	                    'etiqueta' => $row['titulo'],
-	                );
-	                $ret[] = $temp;
-	            }
-	        }
+        	    $ret[] = array('valor' => '', 'etiqueta' => '');
+        	    $cliente = getParam($_GET, 'cliente', '');
+        	    
+        	    if($cliente != ''){
+        	        $sql = "select * from sdm_projetos where cliente = '$cliente'";
+        	        $rows = query($sql);
+        	        if(is_array($rows) && count($rows) > 0){
+        	            foreach ($rows as $row){
+        	                $temp = array(
+        	                    'valor' => $row['id'],
+        	                    'etiqueta' => $row['titulo'],
+        	                );
+        	                $ret[] = $temp;
+        	            }
+        	        }
+        	    }
+        	    return json_encode($ret);
+        	    break;
+	        default:
+	            
 	    }
-	    return json_encode($ret);
+	    
 	}
 }
 
@@ -978,7 +1108,7 @@ function SDM_getClientes(){
 	$ret[0][0] = "";
 	$ret[0][1] = "&nbsp;";
 	
-	$sql = "SELECT cod, nreduz FROM cad_clientes WHERE 1 = 1 ORDER BY nreduz";
+	$sql = "SELECT cod, nreduz FROM cad_organizacoes WHERE 1 = 1 ORDER BY nreduz";
 	$rows = query($sql);
 	
 	if(is_array($rows) && count($rows) > 0){
@@ -997,7 +1127,7 @@ function SDM_getResponsavel(){
 	$ret[0][0] = "";
 	$ret[0][1] = "&nbsp;";
 	
-	$sql = "SELECT usuario, apelido FROM cad_recursos WHERE 1 = 1 ORDER BY apelido";
+	$sql = "SELECT usuario, apelido FROM sdm_recursos WHERE 1 = 1 ORDER BY apelido";
 	$rows = query($sql);
 	
 	if(is_array($rows) && count($rows) > 0){

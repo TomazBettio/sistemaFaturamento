@@ -119,7 +119,7 @@ class sdm_minhaagenda{
 	//----------------------------------------------------------------- GETs ------------
 	
 	private function getRecurso(){
-		$sql = "SELECT * FROM cad_recursos WHERE agenda = 'S' AND ativo = 'S' AND tipo = 'A' AND usuario = '".getUsuario()."'";
+		$sql = "SELECT * FROM sdm_recursos WHERE agenda = 'S' AND ativo = 'S' AND tipo = 'A' AND usuario = '".getUsuario()."'";
 		$rows = query($sql);
 		
 		if(isset($rows[0]['nome'])){
@@ -220,7 +220,7 @@ class sdm_minhaagenda{
 	}
 	
 	private function getClientesNome(){
-		$sql = "SELECT cod, nreduz FROM cad_clientes ";
+		$sql = "SELECT cod, nreduz FROM cad_organizacoes ";
 		$rows = query($sql);
 		
 		if(is_array($rows) && count($rows) > 0){
@@ -252,7 +252,7 @@ function sdm_agenda_clientes(){
     $ret[0][0] = "";
     $ret[0][1] = "&nbsp;";
     
-    $sql = "SELECT cod, nreduz FROM cad_clientes WHERE ativo = 'S' ORDER BY nreduz";
+    $sql = "SELECT cod, nreduz FROM cad_organizacoes WHERE ativo = 'S' ORDER BY nreduz";
     $rows = query($sql);
     
     if(is_array($rows) && count($rows) > 0){

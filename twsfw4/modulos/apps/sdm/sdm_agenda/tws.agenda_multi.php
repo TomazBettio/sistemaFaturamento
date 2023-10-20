@@ -5,7 +5,9 @@
  *
  * Descricao: Marcação de agenda múltipla
  *
- * Alteracoes;
+ * Alteracoes:
+ * 
+ * 08/09/2023 - Debug e integração com agenda MS Teams - Alex
  *
  */
 
@@ -38,6 +40,11 @@ class agenda_multi{
 		$this->getRecursos();
 		$this->getClientesNome();
 		$this->_programa = get_class($this);
+		$javascript = '
+			function marcarTodos(modulo, marcado){
+				$("." + modulo).each(function(){$(this).prop("checked", marcado);});
+			}';
+		addPortaljavaScript($javascript);
 	}
 	
 	public function index(){
@@ -51,6 +58,7 @@ class agenda_multi{
 		$dataIni 	= datas::dataD2S($dados['dataIni']);
 		$dataFim 	= datas::dataD2S($dados['dataFim']);
 		$recursos 	= $dados['REC'];
+		/*
 		$cliente 	= $dados['cliente'];
 		$projeto 	= $dados['projeto'];
 		$turno 		= $dados['turno'];
@@ -58,6 +66,7 @@ class agenda_multi{
 		$contato 	= $dados['contato'];
 		$tipo 		= $dados['tipo'];
 		$tarefa 	= $dados['tarefa'];
+		*/
 		$dias 		= getParam($_POST, 'diasSemana');
 		
 		$erro = [];
@@ -83,7 +92,7 @@ class agenda_multi{
 					if(array_key_exists($datas[1][$key], $dias) || count($dias) == 0){
 //echo "$d <br>\n";
 						foreach ($recursos as $rec => $ok){
-							$marcadas[] = $this->marcarAgenda($d, $rec, $turno, $cliente, $projeto, $local, $contato, $tipo, $tarefa);
+							$marcadas[] = $this->marcarAgenda($dados, $d, $rec);
 							$ret = $this->montaTabelaMarcadas($marcadas);
 						}
 					}
@@ -102,10 +111,11 @@ class agenda_multi{
 		}
 		
 		return $ret;
+		//return '';
 	}
 	
 	//----------------------------------------------------------------- VO --------------
-	private function marcarAgenda($d, $rec, $turno, $cliente, $projeto, $local, $contato, $tipo, $tarefa){
+	private function marcarAgenda($param, $d, $rec){
 		$ret = [];
 		
 		$campos = [];
@@ -115,25 +125,69 @@ class agenda_multi{
 		$campos['fil'] 				= '01';
 		$campos['recurso'] 			= $rec;
 		$campos['data'] 			= $d;
-		$campos['turno'] 			= $turno;
-		$campos['local'] 			= $local;
-		$campos['contato'] 			= $contato;
-		$campos['cliente_agenda'] 	= $cliente;
-		$campos['tipo'] 			= $tipo;
-		$campos['tarefa'] 			= $tarefa;
+		$campos['turno'] 			= $param['turno'];
+		$campos['local'] 			= $param['local'];
+		$campos['contato'] 			= $param['contato'];
+		$campos['cliente_agenda'] 	= $param['cliente'];
+		$campos['tipo'] 			= $param['tipo'];
+		$campos['tarefa'] 			= $param['tarefa'];
 		$campos['status'] 			= 'F';
 		$campos['os'] 				= '';
 		$campos['ticket'] 			= '';
 		$campos['marcado_por'] 		= getUsuario();
-		$campos['projeto']			= $projeto;
+		$campos['projeto']			= $param['projeto'];
 		
+		
+		$temp = preg_split('/[.]/', $rec);
+		$nome = $temp[0];
+		
+		$dadosPost = array();
+		$dadosPost['dia'] = $d;
+		$dadosPost['email'] = $rec;
+		$dadosPost['nome'] = $nome;
+		$dadosPost['turno'] = $campos['turno'];
+		$dadosPost['local'] = $campos['local'];
+		$dadosPost['titulo'] = $param['titulo'] ?? "Agenda Múltipla - Automática";
+		$dadosPost['tarefa'] = $campos['tarefa'];
+		
+		
+		$calendario = new rest_calendario('https://graph.microsoft.com/v1.0', $dadosPost);    //, $this->_token);
+		
+		$ret = $calendario->agendarEvento($dadosPost['email']);
+
+	    if($ret !== false && isset($ret['id'])){
+	        $campos['id_api'] = $ret['id'];
+	    } else {
+	        $campos['id_api'] = '';
+	        addPortalMensagem('Problema ao salvar na agenda do Teams!', 'erro');
+	    }
+	    
+	    $sql = montaSQL($campos, 'sdm_agenda');
+	     $res = query($sql);
+	    
+	    $campos['erro'] = false;
+	    if(!$res){
+	        $campos['erro'] = true;
+	    }else{
+	       // echo " - Enviarei email para {$campos['recurso']} - ";
+	        app_sdm::enviaEmailAgendaRecurso($campos);
+	    }
+	
+		
+		
+		/*
 		$sql = montaSQL($campos, 'sdm_agenda');
-		$res = query($sql);
+		//$res = query($sql);
+		$res = true;
 		
 		$campos['erro'] = false;
 		if(!$res){
 			$campos['erro'] = true;
+		}else{
+		    echo " - Enviarei email para {$campos['recurso']} - ";
+			//app_sdm::enviaEmailAgendaRecurso($campos);
 		}
+		*/
 		
 		return $campos;
 	}
@@ -175,12 +229,11 @@ class agenda_multi{
 		
 		$this->addJSProjeto();
 		
-		$form = new form01();
+		$form = new form01(['geraScriptValidacaoObrigatorios'=>true]);
 		$form->setBotaoCancela();
-		$form->addCampo(array('id' => 'cliente'	, 'campo' => 'formAgenda[cliente]'	, 'etiqueta' => 'Cliente'	, 'tipo' => 'A'		, 'tamanho' => '80', 'linha' => 1, 'largura' => 6	, 'linhasTA' => ''	, 'valor' => ''			, 'lista' => $clientes	, 'validacao' => '', 'obrigatorio' => true, 'onchange' => 'callAjax();'));
-		
+		$form->addCampo(array('id' => 'titulo'	, 'campo' => 'formAgenda[titulo]'	, 'etiqueta' => 'Titulo da Agenda'	, 'tipo' => 'T'	, 'tamanho' => '20', 'linha' => 1, 'largura' => 12	, 'linhasTA' => ''	, 'valor' => ''		, 'lista' => ''			, 'validacao' => '', 'obrigatorio' => true));
+		$form->addCampo(array('id' => 'cliente'	, 'campo' => 'formAgenda[cliente]'	, 'etiqueta' => 'Cliente'	, 'tipo' => 'A'		, 'tamanho' => '80', 'linha' => 1, 'largura' => 6	, 'linhasTA' => ''	, 'valor' => '000001'	, 'lista' => $clientes	, 'validacao' => '', 'obrigatorio' => true, 'onchange' => 'callAjax();'));
 		$form->addCampo(array('id' => 'projeto'	, 'campo' => 'formAgenda[projeto]'	, 'etiqueta' => 'Projeto'	, 'tipo' => 'A'		, 'tamanho' => '80', 'linha' => 1, 'largura' => 6	, 'linhasTA' => ''	, 'valor' => ''			, 'lista' => array(array('', ''))	, 'validacao' => '', 'obrigatorio' => false));
-		
 		$form->addCampo(array('id' => 'turno'	, 'campo' => 'formAgenda[turno]'	, 'etiqueta' => 'Turno'		, 'tipo' => 'A'		, 'tamanho' => '20', 'linha' => 2, 'largura' => 4	, 'linhasTA' => ''	, 'valor' => $turnosVal , 'lista' => $turnos	, 'validacao' => '', 'obrigatorio' => true));
 		$form->addCampo(array('id' => 'local'	, 'campo' => 'formAgenda[local]'	, 'etiqueta' => 'Local'		, 'tipo' => 'A'		, 'tamanho' => '10', 'linha' => 2, 'largura' => 8	, 'linhasTA' => ''	, 'valor' => $localVal	, 'lista' => $local		, 'validacao' => '', 'obrigatorio' => true));
 		$form->addCampo(array('id' => 'contato'	, 'campo' => 'formAgenda[contato]'	, 'etiqueta' => 'Contato'	, 'tipo' => 'T'		, 'tamanho' => '10', 'linha' => 3, 'largura' => 6	, 'linhasTA' => ''	, 'valor' => ''			, 'lista' => ''			, 'validacao' => '', 'obrigatorio' => true));
@@ -232,17 +285,48 @@ class agenda_multi{
 	private function montaFormRecursos(){
 		$ret = '';
 		
+		/*
+		 $dados = [];
+		 foreach ($this->_recursos as $rec){
+		 $dados[] = ['nome' => "formAgenda[REC][{$rec['recurso']}]", 'etiqueta' => $rec['apelido']];
+		 }
+		 
+		 if(is_array($dados) && count($dados) > 0){
+		 $param = [];
+		 $param['colunas'] = 3;
+		 $param['combos']  = $dados;
+		 $ret = formbase01::formGrupoCheckBox($param);
+		 }
+		 */
+		$type = 'Todos';
+		$descricao = 'Marcar Todos';
 		$dados = [];
+		
 		foreach ($this->_recursos as $rec){
-			$dados[] = ['nome' => 'formAgenda['.'REC][' . $rec['recurso'].']', 'etiqueta' => $rec['apelido']];
+		    $temp = [];
+		    $temp["nome"] 		= "formAgenda[REC][{$rec['recurso']}]";
+		    $temp["etiqueta"] 	= $rec['apelido'];
+		    $temp["modulo"] 	= $type;
+		    $temp["classeadd"] 	= $type;
+		    $temp["checked"]    = false;
+		    $dados[] = $temp;
 		}
 		
 		if(is_array($dados) && count($dados) > 0){
-			$param = [];
-			$param['colunas'] = 3;
-			$param['combos']  = $dados;
-			$ret = formbase01::formGrupoCheckBox($param);
+		    $param = [];
+		    $param['colunas'] 	= 3;
+		    $param['combos']	= $dados;
+		    $formCombo = formbase01::formGrupoCheckBox($param);
+		    $param = [];
+		    $param['titulo'] = '<label><input type="checkbox"  onclick="marcarTodos(\''.$type.'\',this.checked);"  name="['.$type.']" id="' . $descricao . '_id"  />&nbsp;&nbsp;'.$descricao.'</label>';
+		    $param['conteudo'] = $formCombo;
+		    
+		    $ret .= $param['titulo'] . $param['conteudo'];
+		    
+		    //$ret .= addCard($param).'<br><br>';
 		}
+		
+		
 		
 		return $ret;
 	}
@@ -296,7 +380,7 @@ class agenda_multi{
 		if(!empty($recurso)){
 			$where = " AND recurso = '$recurso'";
 		}
-		$sql = "SELECT * FROM cad_recursos WHERE agenda = 'S' AND ativo = 'S' AND tipo = 'A' $where ORDER BY apelido";
+		$sql = "SELECT * FROM sdm_recursos WHERE agenda = 'S' AND ativo = 'S' AND tipo = 'A' $where ORDER BY apelido";
 		//echo "$sql <br>\n";
 		$rows = query($sql);
 		
@@ -351,7 +435,7 @@ class agenda_multi{
 	}
 	
 	private function getClientesNome(){
-		$sql = "SELECT cod, nreduz FROM cad_clientes ";
+		$sql = "SELECT cod, nreduz FROM cad_organizacoes ";
 		$rows = query($sql);
 		
 		if(is_array($rows) && count($rows) > 0){
@@ -364,10 +448,10 @@ class agenda_multi{
 	private function getClientes(){
 		$ret = array();
 		
-		$ret[0][0] = "";
-		$ret[0][1] = "&nbsp;";
+		//$ret[0][0] = "";
+		//$ret[0][1] = "&nbsp;";
 		
-		$sql = "SELECT cod, nreduz FROM cad_clientes WHERE ativo = 'S' ORDER BY nreduz";
+		$sql = "SELECT cod, nreduz FROM cad_organizacoes WHERE ativo = 'S' ORDER BY nreduz";
 		$rows = query($sql);
 		
 		if(is_array($rows) && count($rows) > 0){

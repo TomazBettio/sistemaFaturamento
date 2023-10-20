@@ -23,7 +23,7 @@ $config['logoAlturaMini']	= '';
 $config['logoArquivo']		= '';
 $config['logoLargura']		= '';
 $config['logoAltura']		= '';
-$config['footerPadrao']		= '<strong>Copyright &copy; 2023-'.date('Y').' <a href="#">Rafael Postal Barbosa |Labs|</a>.</strong>Todos os direitos reservados<div class="float-right d-none d-sm-inline-block"><b>Versão</b> 4.0-rc</div>';
+$config['footerPadrao']		= '<strong>Copyright &copy; 2023-'.date('Y').' <a href="#">Tomaz Culau |Labs|</a>.</strong>Todos os direitos reservados<div class="float-right d-none d-sm-inline-block"><b>Versão</b> 4.0-rc</div>';
 
 
 $config['preloader']	= 'AdminLTELogo.png'; //Indica a imagem que deve ser mostrada ao carregar a página (vazio nao mostra)
@@ -55,17 +55,17 @@ $config['sidebar_cache'] 	= false; //Indica se deve fazer cache do menu ou desen
 /*
  * Configurações de caminhos
  */
-$config['base'] 	= 'C:\xampp\htdocs\intranet4Tomaz/';
-$config['baseFW'] 	= 'C:\xampp\htdocs\intranet4Tomaz/twsfw4/';
-$config['baseS3'] 	= 'C:\xampp\htdocs\intranet4Tomaz/s3/';
+$config['base'] 	= 'C:\xampp\htdocs\sistemaFaturamento/';
+$config['baseFW'] 	= 'C:\xampp\htdocs\sistemaFaturamento/twsfw4/';
+$config['baseS3'] 	= 'C:\xampp\htdocs\sistemaFAturamento/s3/';
 
 $config['include'] 	= $config['baseFW'].'includes/';
 $config['modulos'] 	= $config['baseFW'].'modulos/';
 
 $protocolo = 'http://';
-$config['raiz'] 	= $protocolo.$_SERVER['HTTP_HOST'].'/intranet4Tomaz/';
-$config['raizS3'] 	= $protocolo.$_SERVER['HTTP_HOST'].'/intranet4Tomaz/s3/';
-$config["raizTemp"]  = $protocolo.$_SERVER['HTTP_HOST'].'/intranet4Tomaz/temp/';
+$config['raiz'] 	= $protocolo.$_SERVER['HTTP_HOST'].'/sistemaFaturamento/';
+$config['raizS3'] 	= $protocolo.$_SERVER['HTTP_HOST'].'/sistemaFaturamento/s3/';
+$config["raizTemp"]  = $protocolo.$_SERVER['HTTP_HOST'].'/sistemaFaturamento/temp/';
 $config["tempURL"] = $config['base'] . 'temp/';
 
 $config['imagens'] 	= $config['raizS3'].'imagens/';
@@ -120,7 +120,7 @@ $db = ADOnewConnection($config['db_banco']);
 
 $dsnString= $config['db_server'].';dbname='.$config['db_database'].';charset=utf8';
 $db->connect('mysql:' . $dsnString,$config['db_usuario'],$config['db_senha']);
-//$db->debug = true;
+	// $db->debug = true;
 
 //------------------------------------------------------------
 // Email

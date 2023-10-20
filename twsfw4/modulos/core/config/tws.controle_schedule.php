@@ -48,8 +48,8 @@ class controle_schedule{
         $browser->addColuna(array('campo' => 'nome'			, 'etiqueta' => 'Nome'		, 'width' => 100, 'posicao' => 'E'));
         $browser->addColuna(array('campo' => 'descricao'	, 'etiqueta' => 'Descrição'	, 'width' => 100, 'posicao' => 'E'));
         $browser->addColuna(array('campo' => 'periodo'		, 'etiqueta' => 'Periodo'	, 'width' =>  80, 'posicao' => 'C'));
-        $browser->addColuna(array('campo' => 'parametros'	, 'etiqueta' => 'Parametros', 'width' => 200, 'posicao' => 'esquerda'));
-        $browser->addColuna(array('campo' => 'ativo'		, 'etiqueta' => 'Ativo'		, 'width' =>  80, 'posicao' => 'centro'));
+        $browser->addColuna(array('campo' => 'parametros'	, 'etiqueta' => 'Parametros', 'width' => 200, 'posicao' => 'E'));
+        $browser->addColuna(array('campo' => 'ativo'		, 'etiqueta' => 'Ativo'		, 'width' =>  80, 'posicao' => 'C'));
         
         
         $botaoedi = [];
@@ -163,7 +163,7 @@ class controle_schedule{
                 $titulo = 'incluir';
                 $url = getLink().'gravar';
             }
-            addPortalMensagem('Atenção', $msg, 'erro');
+            addPortalMensagem($msg, 'error');
         }else{
             $titulo = 'Incluir Programa';
             $url = getLink().'gravar';
@@ -174,17 +174,17 @@ class controle_schedule{
         $minuto = '0=00;1=15;2=30;3=45';
         $prioridade = '1=1;2=2;3=3;4=4;5=5;6=6;7=7;8=8;9=9;10=10';
         
-        $form->addCampo(array('id' => '', 'campo' => 'formt[nome]'		, 'etiqueta' => 'Nome'			,'tipo' => 'T'	, 'largura' =>  6,'tamanho' => '11', 'linhas' => '' , 'valor' => $dado['nome']		, 'validacao' => '', 'obrigatorio' => true));
-        $form->addCampo(array('id' => '', 'campo' => 'formt[descricao]'	, 'etiqueta' => 'Descrição'		,'tipo' => 'T'	, 'largura' =>  6,'tamanho' => '11', 'linhas' => '' , 'valor' => $dado['descricao']	, 'validacao' => '', 'obrigatorio' => true));
-        $form->addCampo(array('id' => '', 'campo' => 'formt[programa]'	, 'etiqueta' => 'Programa'		,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '11', 'linhas' => '' , 'valor' => $dado['programa']	, 'validacao' => '', 'obrigatorio' => true));
-        $form->addCampo(array('id' => '', 'campo' => 'formt[periodo]'	, 'etiqueta' => 'Periodo'		,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '11', 'linhas' => '' , 'valor' => $dado['periodo']	, 'opcoes' => $periodo, 'validacao' => '', 'obrigatorio' => true));
-        $form->addCampo(array('id' => '', 'campo' => 'formt[prioridade]', 'etiqueta' => 'Prioridade'	,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '4' , 'linhas' => '' , 'valor' => $dado['prioridade'], 'opcoes' => $prioridade		,'validacao' => '', 'obrigatorio' => true));
-        $form->addCampo(array('id' => '', 'campo' => 'formt[dia]'		, 'etiqueta' => 'Dia'			,'tipo' => 'N'	, 'largura' =>  4,'tamanho' => '11', 'linhas' => '' , 'valor' => $dado['dia']		, 'validacao' => '', 'obrigatorio' => true));
-        $form->addCampo(array('id' => '', 'campo' => 'formt[hora]'		, 'etiqueta' => 'Hora'			,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '4' , 'linhas' => '' , 'valor' => $dado['hora']		, 'opcoes' => $hora		,'validacao' => '', 'obrigatorio' => true));
-        $form->addCampo(array('id' => '', 'campo' => 'formt[minuto]'	, 'etiqueta' => 'Minuto'		,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '4' , 'linhas' => '' , 'valor' => $dado['minuto']	, 'opcoes' => $minuto		,'validacao' => '', 'obrigatorio' => true));
-        $form->addCampo(array('id' => '', 'campo' => 'formt[semana]'	, 'etiqueta' => 'Dias da Semana','tipo' => 'DS'	, 'largura' =>  8,'tamanho' => '11', 'linhas' => '' , 'valor' => $dado['semana']	, 'validacao' => '', 'obrigatorio' => true));
-        $form->addCampo(array('id' => '', 'campo' => 'formt[ativo]'		, 'etiqueta' => 'Ativo'			,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '4' , 'linhas' => '' , 'valor' => $dado['ativo']		, 'opcoes' => $ativo, 'validacao' => '', 'obrigatorio' => true));
-        $form->addCampo(array('id' => '', 'campo' => 'formt[parametros]', 'etiqueta' => 'Parametros'	,'tipo' => 'TA'	, 'largura' => 12,'tamanho' => '11', 'linhas' => '6', 'valor' => $dado['parametros'], 'validacao' => '', 'obrigatorio' => true));
+        $form->addCampo(array('id' => '', 'campo' => 'formt[nome]'		, 'etiqueta' => 'Nome'			,'tipo' => 'T'	, 'largura' =>  6,'tamanho' => '30', 'linhas' => '' , 'valor' => $dado['nome']									, 'validacao' => ''	, 'obrigatorio' => true));
+        $form->addCampo(array('id' => '', 'campo' => 'formt[descricao]'	, 'etiqueta' => 'Descrição'		,'tipo' => 'T'	, 'largura' =>  6,'tamanho' => '60', 'linhas' => '' , 'valor' => $dado['descricao']								, 'validacao' => ''	, 'obrigatorio' => true));
+        $form->addCampo(array('id' => '', 'campo' => 'formt[programa]'	, 'etiqueta' => 'Programa'		,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '60', 'linhas' => '' , 'valor' => $dado['programa']								, 'validacao' => ''	, 'obrigatorio' => true));
+        $form->addCampo(array('id' => '', 'campo' => 'formt[periodo]'	, 'etiqueta' => 'Periodo'		,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '11', 'linhas' => '' , 'valor' => $dado['periodo']	, 'opcoes' => $periodo		, 'validacao' => ''	, 'obrigatorio' => true));
+        $form->addCampo(array('id' => '', 'campo' => 'formt[prioridade]', 'etiqueta' => 'Prioridade'	,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '4' , 'linhas' => '' , 'valor' => $dado['prioridade'], 'opcoes' => $prioridade	,'validacao' => ''	, 'obrigatorio' => true));
+        $form->addCampo(array('id' => '', 'campo' => 'formt[dia]'		, 'etiqueta' => 'Dia'			,'tipo' => 'N'	, 'largura' =>  4,'tamanho' => '11', 'linhas' => '' , 'valor' => $dado['dia']									, 'validacao' => ''	, 'obrigatorio' => true));
+        $form->addCampo(array('id' => '', 'campo' => 'formt[hora]'		, 'etiqueta' => 'Hora'			,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '4' , 'linhas' => '' , 'valor' => $dado['hora']		, 'opcoes' => $hora			,'validacao' => ''	, 'obrigatorio' => true));
+        $form->addCampo(array('id' => '', 'campo' => 'formt[minuto]'	, 'etiqueta' => 'Minuto'		,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '4' , 'linhas' => '' , 'valor' => $dado['minuto']	, 'opcoes' => $minuto		,'validacao' => ''	, 'obrigatorio' => true));
+        $form->addCampo(array('id' => '', 'campo' => 'formt[semana]'	, 'etiqueta' => 'Dias da Semana','tipo' => 'DS'	, 'largura' =>  8,'tamanho' => '11', 'linhas' => '' , 'valor' => $dado['semana']								, 'validacao' => ''	, 'obrigatorio' => true));
+        $form->addCampo(array('id' => '', 'campo' => 'formt[ativo]'		, 'etiqueta' => 'Ativo'			,'tipo' => 'T'	, 'largura' =>  4,'tamanho' => '4' , 'linhas' => '' , 'valor' => $dado['ativo']		, 'opcoes' => $ativo		, 'validacao' => ''	, 'obrigatorio' => true));
+        $form->addCampo(array('id' => '', 'campo' => 'formt[parametros]', 'etiqueta' => 'Parametros'	,'tipo' => 'TA'	, 'largura' => 12,'tamanho' => '11', 'linhas' => '6', 'valor' => $dado['parametros']							, 'validacao' => ''	, 'obrigatorio' => true));
         
         $form->setEnvio($url, 'tform', 'tform');
         
@@ -230,7 +230,7 @@ class controle_schedule{
         $dados = [];
         foreach($this->_campos as $campo){
             if(isset($post[$campo])){
-                $dados[$campo] = $post[$campo];
+            	$dados[$campo] = str_replace("'","\'",$post[$campo]);
             }
             else{
                 $dados[$campo] = '';
@@ -270,7 +270,7 @@ class controle_schedule{
                 log::gravaLog($this->_log,  'o usuário ' . getUsuario() . ' editou o seguinte schedule: ' . $dados['nome'] . ' os novos dados são: ' . json_encode($dados));
             }
             query($sql);
-            return $this->index();
+            redireciona(getLink().'index');
         }
         else{
             return $this->editar($dados, $erro);

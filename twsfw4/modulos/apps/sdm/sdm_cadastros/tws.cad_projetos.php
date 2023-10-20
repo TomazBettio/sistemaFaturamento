@@ -82,11 +82,11 @@ class cad_projetos{
     	$dados = $this->getDados($id);
     	$form = new form01(array());
     	$form->addCampo(array('id' => '','campo' => 'formPrograma[cliente]'		,'etiqueta' => 'Cliente'	,'tipo' => 'A' ,'tamanho' => '15','linha' => '1', 'largura' => 5,'valor' => $dados['cliente']		, 'lista' => funcoes_cad::getListaClientes('nome')	,'validacao' => '','obrigatorio' => true));
-    	$form->addCampo(array('id' => '','campo' => 'formPrograma[titulo]'		,'etiqueta' => 'Título'		,'tipo' => 'T' ,'tamanho' => '15','linha' => '1', 'largura' => 7,'valor' => $dados['titulo']		, 'lista' => ''										,'validacao' => '','obrigatorio' => true));
+    	$form->addCampo(array('id' => '','campo' => 'formPrograma[titulo]'		,'etiqueta' => 'Título'		,'tipo' => 'T' ,'tamanho' => '30','linha' => '1', 'largura' => 7,'valor' => $dados['titulo']		, 'lista' => ''										,'validacao' => '','obrigatorio' => true));
     	$form->addCampo(array('id' => '','campo' => 'formPrograma[tipo]'		,'etiqueta' => 'Tipo'		,'tipo' => 'A' ,'tamanho' => '06','linha' => '2', 'largura' => 2,'valor' => $dados['tipo']			, 'lista' => tabela('000005','',true)				,'validacao' => '','obrigatorio' => true));
     	$form->addCampo(array('id' => '','campo' => 'formPrograma[inicio]'		,'etiqueta' => 'Data Início','tipo' => 'D' ,'tamanho' => '10','linha' => '2', 'largura' => 3,'valor' => $dados['inicio']		, 'lista' => ''										,'validacao' => '','obrigatorio' => true));
     	$form->addCampo(array('id' => '','campo' => 'formPrograma[fim]'			,'etiqueta' => 'Data Fim'	,'tipo' => 'D' ,'tamanho' => '10','linha' => '2', 'largura' => 3,'valor' => $dados['fim']			, 'lista' => ''										,'validacao' => '','obrigatorio' => false));
-    	$form->addCampo(array('id' => '','campo' => 'formPrograma[responsavel]'	,'etiqueta' => 'Responsavel','tipo' => 'A' ,'tamanho' => '15','linha' => '2', 'largura' => 4,'valor' => $dados['responsavel']	, 'lista' => funcoes_cad::getListaRecursos()		,'validacao' => '','obrigatorio' => true));
+    	$form->addCampo(array('id' => '','campo' => 'formPrograma[responsavel]'	,'etiqueta' => 'Responsavel','tipo' => 'A' ,'tamanho' => '15','linha' => '2', 'largura' => 4,'valor' => $dados['responsavel']	, 'lista' => funcoes_cad::getListaRecursos(['agenda'=>''])		,'validacao' => '','obrigatorio' => true));
     	$form->addCampo(array('id' => '','campo' => 'formPrograma[descricao]'	,'etiqueta' => 'Descrição'	,'tipo' => 'TA','tamanho' => '10','linha' => '2', 'largura' =>12,'valor' => $dados['descricao']		, 'lista' => ''										,'validacao' => '','obrigatorio' => true, 'linhasTA' => 10));
     	
     	$form->setEnvio(getLink() . 'salvar&id='.base64_encode($id), 'formPrograma', 'formPrograma');
@@ -126,7 +126,7 @@ class cad_projetos{
 	                foreach ($colunas as $c) {
 	                    $temp[$c] = $r[$c];
 	                }
-	                $temp['clienteDesc']= funcoes_cad::getClienteCampo($temp['cliente']);
+	                $temp['clienteDesc']= funcoes_cad::getClienteCampoByCodigo($temp['cliente']);
 	                $temp['inicio'] 	= datas::dataS2D($temp['inicio']);
 	                $temp['fim'] 		= datas::dataS2D($temp['fim']);
 	                $temp['tipoDesc'] 	= getTabelaDesc('000005',$temp['tipo']);

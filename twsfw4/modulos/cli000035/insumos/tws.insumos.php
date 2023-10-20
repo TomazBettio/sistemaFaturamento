@@ -494,7 +494,7 @@ class insumos{
 					$botaoConfirma = formbase01::formBotao($param);
 					
 					$param = [];
-					$param["onclick"]	= "setLocation('".getLink()."excluir&cnpj=".base64_encode($id)."&confirma=".base64_encode('123bjhuasgdgajgejhdjagsd')."')";
+					$param["onclick"]	= "setLocation('".getLink()."excluir&cnpj=".base64_encode($id)."&confirma=".base64_encode('confirmado')."')";
 					$param["texto"]		= "EXCLUIR";
 					$param['cor'] 		= 'danger';
 					$botaoExcluir = formbase01::formBotao($param);

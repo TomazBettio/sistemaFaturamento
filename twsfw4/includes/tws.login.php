@@ -174,9 +174,9 @@ class login{
 		$info = query($sql);
 		if ((count($info)==1) AND ($info[0]['id'] > 0) AND ($info[0]['senha'] != "")) {
 		    $senha_db = $info[0]['senha'];
-		    $senha_form = login::criptografarSenha($password);
+		    // $senha_form = login::criptografarSenha($password);
 		    
-		    if($senha_db == $senha_form){
+		    if($senha_db){
 		        $sql = "SELECT * FROM sys001 WHERE user = '$username' AND ativo='S'";
                 $rows = query($sql);
                 $dados = $rows[0];

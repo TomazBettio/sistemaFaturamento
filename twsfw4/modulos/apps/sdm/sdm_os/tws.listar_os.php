@@ -36,18 +36,14 @@ class listar_os{
         'ajax'          => true,
     );
     
-    private $_programa = 'Lista_OS';
+    private $_programa;
     private $_titulo = 'Lista OS';
-    private $_variaveis = array();
+    private $_variaveis = [];
     
-	function __construct(){
-		if(true){
-	        sys004::inclui(['programa' => $this->_programa, 'emp' => '', 'fil' => '', 'ordem' => '1', 'pergunta' => 'Analista'	, 'variavel' => 'user'		, 'tipo' => 'A', 'tamanho' => '8', 'casadec' => 0, 'validador' => '', 'tabela' => '', 'funcaodados' => 'listar_os::listaAnalista()'	, 'help' => '', 'inicializador' => '', 'inicfunc' => '', 'opcoes' => '' ]);
-	        sys004::inclui(['programa' => $this->_programa, 'emp' => '', 'fil' => '', 'ordem' => '2', 'pergunta' => 'Cliente'	, 'variavel' => 'os_cliente', 'tipo' => 'A', 'tamanho' => '8', 'casadec' => 0, 'validador' => '', 'tabela' => '', 'funcaodados' => 'listar_os::listaCliente()'	, 'help' => '', 'inicializador' => '', 'inicfunc' => '', 'opcoes' => '' ]);
-	        sys004::inclui(['programa' => $this->_programa, 'emp' => '', 'fil' => '', 'ordem' => '3', 'pergunta' => 'Dt Início'	, 'variavel' => 'data_ini'	, 'tipo' => 'D', 'tamanho' => '8', 'casadec' => 0, 'validador' => '', 'tabela' => '', 'funcaodados' => ''							, 'help' => '', 'inicializador' => '', 'inicfunc' => '', 'opcoes' => '' ]);
-	        sys004::inclui(['programa' => $this->_programa, 'emp' => '', 'fil' => '', 'ordem' => '4', 'pergunta' => 'Dt Fim'	, 'variavel' => 'data_fim'	, 'tipo' => 'D', 'tamanho' => '8', 'casadec' => 0, 'validador' => '', 'tabela' => '', 'funcaodados' => ''							, 'help' => '', 'inicializador' => '', 'inicfunc' => '', 'opcoes' => '' ]);
-		}
-		
+    //Tabela principal
+    private $_tabela;
+    
+	public function __construct(){
         $this->_variaveis = array(
             'os_cliente'=> 'Cliente',
             'cliente_nome'=> 'Nome Cliente',
@@ -68,81 +64,333 @@ class listar_os{
 			'id'		=> 'Id da OS',
 			'lista_tarefas' => 'Lista de Tarefas'
         );
+        
+        $param = [];
+        $param['titulo'] = "Ordens de Serviço";
+        $param['mostraFiltro'] = true;
+        $param['filtroTipo'] = 2;
+        $this->_tabela = new tabela02($param);
+        $this->_programa = $this->_tabela->getPrograma();
 
+        if(true){
+        	sys004::inclui(['programa' => $this->_programa, 'emp' => '', 'fil' => '', 'ordem' => '1', 'pergunta' => 'Analista'	, 'variavel' => 'user'		, 'tipo' => 'A', 'tamanho' => '8', 'casadec' => 0, 'validador' => '', 'tabela' => '', 'funcaodados' => 'listar_os::listaAnalista()'	, 'help' => '', 'inicializador' => '', 'inicfunc' => '', 'opcoes' => '' ]);
+        	sys004::inclui(['programa' => $this->_programa, 'emp' => '', 'fil' => '', 'ordem' => '2', 'pergunta' => 'Cliente'	, 'variavel' => 'os_cliente', 'tipo' => 'A', 'tamanho' => '8', 'casadec' => 0, 'validador' => '', 'tabela' => '', 'funcaodados' => 'listar_os::listaCliente()'	, 'help' => '', 'inicializador' => '', 'inicfunc' => '', 'opcoes' => '' ]);
+        	sys004::inclui(['programa' => $this->_programa, 'emp' => '', 'fil' => '', 'ordem' => '3', 'pergunta' => 'Dt Início'	, 'variavel' => 'data_ini'	, 'tipo' => 'D', 'tamanho' => '8', 'casadec' => 0, 'validador' => '', 'tabela' => '', 'funcaodados' => ''							, 'help' => '', 'inicializador' => '', 'inicfunc' => '', 'opcoes' => '' ]);
+        	sys004::inclui(['programa' => $this->_programa, 'emp' => '', 'fil' => '', 'ordem' => '4', 'pergunta' => 'Dt Fim'	, 'variavel' => 'data_fim'	, 'tipo' => 'D', 'tamanho' => '8', 'casadec' => 0, 'validador' => '', 'tabela' => '', 'funcaodados' => ''							, 'help' => '', 'inicializador' => '', 'inicfunc' => '', 'opcoes' => '' ]);
+        }
+        
         addJS_ListaOS();
    }
 	
-	function index(){
-	    $bw = new tabela01(array('paginacao' => false));
-	    	    
-	    $bw->addColuna(array('campo' => 'id' , 'etiqueta' => 'ID'	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));
-	    $bw->addColuna(array('campo' => 'user' , 'etiqueta' => 'Analista'	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'esquerda'));
-	   // $bw->addColuna(array('campo' => 'cliente' , 'etiqueta' => 'Cli'	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'esquerda'));
-	    $bw->addColuna(array('campo' => 'os_cliente' , 'etiqueta' => 'Cliente'	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'esquerda'));
-	    $bw->addColuna(array('campo' => 'data' , 'etiqueta' => 'Data'	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));
-	    $bw->addColuna(array('campo' => 'hora_ini' , 'etiqueta' => 'Início'	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));
-	    $bw->addColuna(array('campo' => 'hora_fim' , 'etiqueta' => 'Fim'	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));
-	    $bw->addColuna(array('campo' => 'hora_trans' , 'etiqueta' => 'Translado'	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));
-	    $bw->addColuna(array('campo' => 'hora_total' , 'etiqueta' => 'Total'	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));	 
+	public function index(){
+ 		$ret = '';
+ 		
+ 		$this->montaColunas();
+ 		$this->adicionaBotoes();
 	    
-	    // Botão Editar
-	    $param = array(
-	        'texto' => 'Editar',
-	        'link' => getLink()."editar&id=" ,
-	        'coluna' => 'id',
-	        'width' => 10,
-	        'flag' => '',
-	      //  'tamanho' => 'pequeno',
-	        'cor' => 'success'
-	    );
-	    $bw->addAcao($param);
-	    
-	    // Botão Excluir
-	    $param2 = array(
-	        'texto' => 'Excluir',
-	        'link' => getLink() . 'excluir&id=',
-	        'coluna' => 'id',
-	        'width' => 10,
-	        'flag' => '',
-	       // 'tamanho' => 'pequeno',
-	        'cor' => 'danger'
-	    );
-	    $bw->addAcao($param2);
-	    $param2 = array(
-	        'texto' => 'VISUALIZAR',
-	        'onclick' => "op2('" . getLink()."geraPDF&id={COLUNA:id}')",
-	        'coluna' => 'id',
-	        'width' => 10,
-	      //  'tamanho' => 'pequeno',
-	        'cor' => 'padrão'
-	    );
-	    $bw->addAcao($param2);
-	    	    
-	    $param = [];
-	    $p = array('onclick' => "setLocation('" . getLink()."editar')",'texto' => 'Incluir', 'cor' => 'success');
-	    $param['botoesTitulo'][] = $p;
-	    $p = array('onclick' => "setLocation('" . getLink()."editaModelo')",'texto' => 'Editar Modelo PDF', 'cor' => 'padrão');
-	    $param['botoesTitulo'][] = $p;
-	    
-	  //  echo getLink();
-	   
-	    //Rotina01 pra filtro
-	    $param['filtro'] = true;
-	    $param['titulo'] = $this->_titulo;
-	    $param['programa'] = $this->_programa;
-	    $roti = new rotina01($param);
-	    
-	    $filtro = $roti->getFiltro();
-	   // print_r($filtro);
-	    
-	    $dados = $this->getDados($filtro);
-	    $bw->setFooter("TOTAL: ". $this->totHoras($dados));
+ 		$filtro = $this->_tabela->getFiltro();
+        
+ 		if(!$this->_tabela->getPrimeira()){
+ 		    $dados = $this->getDados($filtro);
+ 		    $this->_tabela->setDados($dados);
+ 		    $this->_tabela->setFooter("TOTAL: ". $this->totHoras($dados). " Horas");
+ 		}
+ 		
+ 		$ret .= $this->_tabela;
+
+ 		return $ret;
+	}
 	
-	    $bw->setDados($dados);	 
-	    
-	    $roti->setConteudo($bw);
-	   return $roti.'';
-	   //  return addBoxInfo('OSOffice Empresas', $bw . '', $param);
+	public function excluir()
+	{
+		$id = intval(getParam($_GET, 'id', 0));
+		if(!$this->validaEdita($id)&&$id!=0){
+			addPortalMensagem("", "Você não tem permissão para alterar essa OS", 'erro');
+		}
+		else{
+			query("UPDATE sdm_os SET del = 'S' WHERE id = $id ");
+			//Verifica se existe tarefas associadas (e libera a tarefa para ser refaturada)
+			$this->verificaTarefasExclusao($id);
+			query("UPDATE sdm_tarefas SET os = 0 WHERE os = $id ");
+		}
+		redireciona(getLink().'index');
+	}
+	
+	public function ajax(){
+		$ret = [];
+		
+		
+		$ret[] = array('valor' => '', 'etiqueta' => '');
+		$cliente = getParam($_GET, 'cliente', '');
+		
+		if($cliente != ''){
+			$sql = "select * from sdm_projetos where cliente = '$cliente'";
+			$rows = query($sql);
+			if(is_array($rows) && count($rows) > 0){
+				foreach ($rows as $row){
+					$temp = array(
+						'valor' => $row['id'],
+						'etiqueta' => $row['titulo'],
+					);
+					$ret[] = $temp;
+				}
+			}
+		}
+		return json_encode($ret);
+	}
+	
+	public function editar($id=0, $agenda='0'){
+		$this->addJqueryAjax();
+		if($id==0){
+			$id = intval(getParam($_GET, 'id', 0));
+		}
+		if($agenda == '0'){
+			$agenda = getParam($_GET, 'agenda', '');
+		}
+		$lis = array();
+		if(isset($_POST['exportar']) && count($_POST['exportar']) > 0)
+		{
+			$id = 0;
+			$lis = $_POST['exportar'];
+		}
+		$dados = $this->getDadosOS($id,$lis,$agenda);
+		$ret = '';
+		
+		$param = [];
+		$param['geraScriptValidacaoObrigatorios'] = true;
+		$form = new form01($param);
+		$alteraData = true;
+		if($id == 0 && empty($agenda)){
+			$form->addCampo(array('id' => 'cliente'	    , 'campo' => 'formOS[os][os_cliente]'   ,'valor'=> $dados['os']['os_cliente']	, 'etiqueta' => 'Cliente'		                         , 'tipo' => 'A'  , 'tamanho' => '10', 'linha' => 1, 'largura' => 6	, 'lista' => $this->listaClienteTab()								, 'validacao' => '', 'obrigatorio' => true, 'onchange' => 'callAjax();'));
+			$form->addCampo(array('id' => 'projeto'	    , 'campo' => 'formOS[os][projeto]'      ,'valor'=> $dados['os']['projeto']		, 'etiqueta' => 'Projeto'	                             , 'tipo' => 'A'  , 'tamanho' => '10', 'linha' => 1, 'largura' => 4	, 'lista' => array(array('', ''))		             				, 'validacao' => ''));
+		}else{
+			$nomeCli = $this->getNomeCliente($dados['os']['os_cliente']);
+			$form->addCampo(array('id' => 'cliente'	    , 'campo' => 'formOS[os][os_cliente]'   ,'valor'=> $nomeCli  				 	, 'etiqueta' => 'Cliente'		   						, 'tipo' => 'I'  , 'tamanho' => '10', 'linha' => 1, 'largura' => 6	, 'lista' => ''														, 'validacao' => ''	, 'obrigatorio' => true));
+			$form->addCampo(array('id' => 'projeto'	    , 'campo' => 'formOS[os][projeto]'      ,'valor'=> $dados['os']['projeto']		, 'etiqueta' => 'Projeto'	                            , 'tipo' => 'A'	 , 'tamanho' => '10', 'linha' => 1, 'largura' => 4	, 'lista' => $this->criarListaProjetos($dados['os']['os_cliente'])	, 'validacao' => ''));
+			if(!empty($agenda)){
+				$alteraData = false;
+				$form->addHidden('formOS[os][os_cliente]', $dados['os']['os_cliente']);
+			}
+		}
+		$form->addCampo(array('id' => 'data'	    , 'campo' => 'formOS[os][data]'             ,'valor'=> $dados['os']['data']			, 'etiqueta' => 'Data'	                                , 'tipo' => 'D'	 , 'tamanho' => '10', 'linha' => 1, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => '', 'readonly' => !$alteraData, 'obrigatorio' => true));
+		
+		$form->addCampo(array('id' => 'modulo'	    , 'campo' => 'formOS[os][modulo]'	        ,'valor'=> $dados['os']['modulo']		, 'etiqueta' => 'Módulo'	                                , 'tipo' => 'T'  , 'tamanho' => '10', 'linha' => 2, 'largura' => 6	, 'lista' => ''		                 								, 'validacao' => ''));
+		$form->addCampo(array('id' => 'restricao'	, 'campo' => 'formOS[os][restricao]'        ,'valor'=> $dados['os']['restricao']	, 'etiqueta' => 'Restrição'	                            , 'tipo' => 'A'	 , 'tamanho' => '10', 'linha' => 2, 'largura' => 3	, 'lista' => tabela('000001')										, 'validacao' => '',                                                  'obrigatorio' => true));
+		$form->addCampo(array('id' => 'usuario'	    , 'campo' => 'formOS[os][pessoa]'           ,'valor'=> $dados['os']['pessoa']		, 'etiqueta' => 'Usuário'	                            , 'tipo' => 'T'	 , 'tamanho' => '10', 'linha' => 2, 'largura' => 3	, 'lista' => ''			             								, 'validacao' => ''));
+		
+		$form->addCampo(array('id' => 'hora_ini'	, 'campo' => 'formOS[os][hora_ini]'         ,'valor'=> $dados['os']['hora_ini']		, 'etiqueta' => 'Hora Início'	                        , 'tipo' => 'T'	 , 'tamanho' => '10', 'linha' => 3, 'largura' => 2	, 'lista' => ''		                 								, 'validacao' => '', 'mascara' => 'H', 'onchange' => 'calculaHora();','obrigatorio' => true));
+		$form->addCampo(array('id' => 'hora_fim'	, 'campo' => 'formOS[os][hora_fim]'         ,'valor'=> $dados['os']['hora_fim']		, 'etiqueta' => 'Hora Fim'	                            , 'tipo' => 'T'	 , 'tamanho' => '10', 'linha' => 3, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => '', 'mascara' => 'H', 'onchange' => 'calculaHora();','obrigatorio' => true));
+		$form->addCampo(array('id' => 'hora_add'	, 'campo' => 'formOS[os][hora_add]'         ,'valor'=> $dados['os']['hora_add']		, 'etiqueta' => 'Outros (+)'	                            , 'tipo' => 'T'	 , 'tamanho' => '10', 'linha' => 3, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => '', 'mascara' => 'H', 'onchange' => 'calculaHora();'));
+		$form->addCampo(array('id' => 'hora_sub'	, 'campo' => 'formOS[os][hora_sub]'         ,'valor'=> $dados['os']['hora_sub']		, 'etiqueta' => 'Outros (-)'	                            , 'tipo' => 'T'	 , 'tamanho' => '10', 'linha' => 3, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => '', 'mascara' => 'H', 'onchange' => 'calculaHora();'));
+		$form->addCampo(array('id' => 'hora_trans'	, 'campo' => 'formOS[os][hora_trans]'       ,'valor'=> $dados['os']['hora_trans']	, 'etiqueta' => 'Transladado'	                        , 'tipo' => 'T'	 , 'tamanho' => '10', 'linha' => 3, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => '', 'mascara' => 'H', 'onchange' => 'calculaHora();'));
+		$form->addCampo(array('id' => 'hora_total_f'	, 'campo' => 'formOS[os][hora_total]'   ,'valor'=> $dados['os']['hora_total'] 	, 'etiqueta' => 'Total'	                                , 'tipo' => 'I'	 , 'tamanho' => '10', 'linha' => 3, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => '', 'mascara' => 'H'));
+		$form->addHidden('formOS[os][hora_total]',''.$dados['os']['hora_total'],'hora_total');
+		
+		$form->addCampo(array('id' => 'observacao'	, 'campo' => 'formOS[os][observacao]'       ,'valor'=> $dados['os']['observacao']	, 'etiqueta' => 'Observação (vai ser impressa na OS):'	, 'tipo' => 'TA' , 'tamanho' => '10', 'linha' => 5, 'largura' => 6	,  'lista' => ''			, 'validacao' => ''));
+		$form->addCampo(array('id' => 'observacao'	, 'campo' => 'formOS[os][obs_int]'			,'valor'=> $dados['os']['obs_int']  	, 'etiqueta' => 'Obs.Interna (não impressa na OS):'	    , 'tipo' => 'TA' , 'tamanho' => '10', 'linha' => 5, 'largura' => 6	,  'lista' => ''			, 'validacao' => ''));
+		$ret .= $form;
+		$ret .= $this->getTabelaTarefas($id,$lis);
+		
+		$link = getLink() . "salvar&id=$id&agenda=$agenda";
+		if(count($lis) > 0){
+			$link .= '&lis=' . implode('|', $lis);
+		}
+		
+		$param = [];
+		$param['sendFooter'] = true;
+		$param['acao'] = $link;
+		$param['id'] = 'formContrato';
+		$param['nome'] = 'formContrato';
+		$param['onsubmit'] = 'verificaObrigatorios';
+		$ret = formbase01::form($param, $ret);
+		
+		$param = [];
+		$param['conteudo'] = $ret;
+		$param['titulo'] = 'Edição OS - '.formataNum($id,6);
+		if($id==0)	    {
+			$param['titulo'] = 'Nova OS';
+		}
+		$ret = addCard($param);
+		
+		return $ret;
+	}
+	
+	public function salvar() {
+		$dados = getParam($_POST, 'formOS', array());
+		$id = intval(getParam($_GET, 'id', 0));
+		$agenda = getParam($_GET, 'agenda', '0');
+		$lista_sdm_os_tarefas = getParam($_GET, 'lis', '');
+		
+		if(is_array($dados) && count($dados) > 0){
+			$dados_os 				= $dados['os'];
+			$dados_tarefas 			= $dados['tarefas'];
+			$dados_os['data'] 		= datas::dataD2S($dados_os['data']);
+			$dados_os['user']		= getUsuario();
+			if($id==0){
+				$dados_os['id'] = $this->getId();
+				$id = $dados_os['id'];
+				$sql = montaSQL($dados_os, 'sdm_os');
+			}
+			else{
+				$sql = montaSQL($dados_os, 'sdm_os', 'UPDATE'," id = $id  ");
+			}
+//echo $sql;
+			query($sql);
+			if($agenda != '0'){
+				$sql = "select * from sdm_os where id = '" . $id . "'";
+				$rows = query($sql);
+				if(is_array($rows) && count($rows) > 0){
+					$sql = "update sdm_agenda set os = '$id' where id = '" . base64_decode($agenda) . "'";
+					query($sql);
+				}
+			}
+			//	$id_os = $id != 0 ? $id : $this->recuperarOS($dados_os);
+			$this->gravarTarefas($dados_tarefas, $id, $lista_sdm_os_tarefas);
+		}
+		redireciona();
+	}
+	
+	public function editaModelo(){
+		$param = array();
+		$param['titulo'] = 'Ordem de Serviço';
+		$param['editores'] = array( 'Modelo_OS');
+		$param['variaveis'] = $this->_variaveis;
+		$param['variaveisIndividuais'] = false;
+		
+		$editor = new editor01($param);
+		$editor->setTituloEditor('Corpo da OS', 'Modelo_OS');
+		
+		$textoCorpo = $this->carregaModelo();
+		
+		$editor->setConteudo( $textoCorpo[0]['valor'], 'Modelo_OS');
+		
+		return '' . $editor;
+	}
+	
+	public function gravarEditor(){
+		$cliente 	= getCliente();
+		$textoCorpo = getParam($_POST, 'Modelo_OS');
+		//print_r($textoCorpo);
+		$sys = new sys020();
+		$rows = query("SELECT parametro FROM sys020 WHERE parametro = 'Modelo_OS_$cliente'");
+		if(is_array($rows) && count($rows)>0)
+		{
+			$sys->atualiza($this->_programa, 'Modelo_OS_' . $cliente ,    $textoCorpo);
+		}
+		else{
+			$dados = array(
+				'programa'=>$this->_programa,
+				'parametro'=>'Modelo_OS_' . $cliente,
+				'tipo'=>'ED',
+				'config'=>'',
+				'descricao'=>'Modelo da Ordem de Serviço',
+				'valor'=>$textoCorpo,
+				
+			);
+			$sys->inclui($dados);
+		}
+		return ''.$this->index();
+	}
+	
+	public function geraPDF(){
+		$id = intval(getParam($_GET, 'id', 0));
+		if($id == 0){
+			$agenda = getParam($_GET, 'agenda', '0');
+			if($agenda != '0'){
+				$sql = "select os from sdm_agenda where id = '" . base64_decode($agenda) . "'";
+				$rows = query($sql);
+				if(is_array($rows) && count($rows) > 0){
+					$id = $rows[0]['os'];
+				}
+			}
+		}
+		//    global $config;
+		
+		$options = new Options();
+		$options->set('isPhpEnabled', TRUE);
+		$options->set('isRemoteEnabled', true);
+		
+		$dados = $this->getDadosPDF($id);
+		$texto = $this->carregaModelo();
+		$texto = $this->setTextoOS($dados, $texto[0]['valor']);
+		
+		$texto_estilo = "<style>
+td {font-size:13px;}
+</style>";
+		
+		
+		$texto = $texto_estilo . $texto;
+//echo($texto);
+		$dompdf = new Dompdf($options);
+		$dompdf->loadHtml($texto);
+		$dompdf->setPaper('A4', 'portrait');
+		$dompdf->render();
+		
+		//$dompdf->stream('document.pdf', array('Attachment'=>false));
+		$pdf = $dompdf->output();
+		if (headers_sent()) {
+		    die("Unable to stream pdf: headers already sent");
+		}
+		header("Cache-Control: no-cache, no-store, must-revalidate");
+		header("Content-Type: application/pdf");
+		header("Content-Length: " . mb_strlen($pdf, "8bit"));
+		header(\Dompdf\Helpers::buildContentDispositionHeader("inline", "output.pdf"));
+		echo $pdf;
+		flush();
+	}
+	
+	private function montaColunas(){
+		$this->_tabela->addColuna(array('campo' => 'id'           , 'etiqueta' => 'ID'	       	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));
+		$this->_tabela->addColuna(array('campo' => 'user'         , 'etiqueta' => 'Analista'  	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'esquerda'));
+		$this->_tabela->addColuna(array('campo' => 'os_cliente'   , 'etiqueta' => 'Cliente'   	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'esquerda'));
+		$this->_tabela->addColuna(array('campo' => 'data'         , 'etiqueta' => 'Data'	   	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));
+		$this->_tabela->addColuna(array('campo' => 'hora_ini'     , 'etiqueta' => 'Início'	   	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));
+		$this->_tabela->addColuna(array('campo' => 'hora_fim'     , 'etiqueta' => 'Fim'	   		, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));
+		$this->_tabela->addColuna(array('campo' => 'hora_trans'   , 'etiqueta' => 'Translado' 	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));
+		$this->_tabela->addColuna(array('campo' => 'hora_total'   , 'etiqueta' => 'Total'	   	, 'tipo' => 'T', 'width' =>  10, 'posicao' => 'centro'));	
+	}
+	
+	private function adicionaBotoes(){
+		// Botão Editar
+		$param = [];
+		$param['texto'] = 'Editar';
+		$param['link'] 	= getLink()."editar&id=";
+		$param['coluna']= 'id';
+		$param['width'] = 10;
+		$param['flag'] 	= 'editar';
+		$param['cor'] 	= 'success';
+		$this->_tabela->addAcao($param);
+		
+		// Botão Excluir
+		$this->jsConfirmaExclusao('"Confirme a exclusão da OS"');
+		$param = [];
+		$param['texto'] = 'Excluir';
+		$param['link'] 	= "javascript:confirmaExclusao('" . getLink() .'excluir&id=' . "','{ID}')";
+		$param['coluna']= 'id';
+		$param['width'] = 10;
+		$param['flag'] 	= 'editar';
+		$param['cor'] 	= 'danger';
+		$this->_tabela->addAcao($param);
+		
+		$param = [];
+		$param['texto'] = 'Vizualizar';
+		$param['onclick'] 	= "op2('" . getLink()."geraPDF&id={COLUNA:id}')";
+		$param['coluna']	= 'id';
+		$param['width'] 	= 10;
+		//$param['flag'] 		= 'editar';
+		//$param['cor'] 		= 'success';
+		$this->_tabela->addAcao($param);
+		
+		$p = [];
+		$p['onclick'] = "setLocation('".getLink()."editar')";
+		$p['texto'] = 'Incluir';
+		$p['cor'] = 'success';
+		$this->_tabela->addBotaoTitulo($p);
+		
+		$p['onclick'] = "setLocation('".getLink()."editaModelo')";
+		$p['texto'] = 'Editar Modelo PDF';
+		//$p['cor'] = 'success';
+		$this->_tabela->addBotaoTitulo($p);
 	}
 	
 	private function totHoras($dados){
@@ -195,13 +443,17 @@ class listar_os{
         $col = array('id','user','cliente','os_cliente','data','hora_ini','hora_fim','hora_total','hora_trans');
             
         $rows = query("SELECT * FROM sdm_os WHERE 1=1 ".$texto." AND del != 'S' ");
+        $usuario = getUsuario();
         if (is_array($rows) && count($rows) > 0)
             foreach ($rows as $r) {
                 foreach ($col as $c)
                 {
                     $temp[$c] = $r[$c];
                 }
-                $rows1 = query("SELECT nreduz FROM cad_clientes WHERE cod = '" . $temp['os_cliente'] . "' and ativo != 'N' ");
+                
+                $temp['editar']		= $r['user'] == $usuario ? true : false;
+                
+                $rows1 = query("SELECT nreduz FROM cad_organizacoes WHERE cod = '" . $temp['os_cliente'] . "' and ativo != 'N' ");
                 if (is_array($rows1) && count($rows1) > 0) {
                     $temp['os_cliente'] = $rows1[0]['nreduz'];
 
@@ -235,22 +487,9 @@ class listar_os{
         return $ret;
 	}
 		
-	public function excluir()
-	{
-	    $id = intval(getParam($_GET, 'id', 0));
-	    if(!$this->validaEdita($id)&&$id!=0){
-	        addPortalMensagem("", "Você não tem permissão para alterar essa OS", 'erro');
-	    }
-	    else{
-	    	query("UPDATE sdm_os SET del = 'S' WHERE id = $id ");
-	        query("UPDATE sdm_tarefas SET os = 0 WHERE os = $id ");	  
-	    }
-	    return $this->index();
-	}
-	
 	static function listaAnalista(){
 	    $ret = array(array('',''));
-	    $row = query("SELECT DISTINCT usuario, apelido, nome FROM cad_recursos WHERE 1=1 ORDER BY nome");
+	    $row = query("SELECT DISTINCT usuario, apelido, nome FROM sdm_recursos WHERE 1=1 ORDER BY nome");
 	    if(is_array($row) && count($row) > 0)
 	    {
 	        foreach($row as $r){
@@ -265,7 +504,7 @@ class listar_os{
 	
 	static function listaCliente(){
 	    $ret = array(array('',''));
-	    $row = query("SELECT DISTINCT cod,nreduz FROM cad_clientes WHERE  ativo = 'S' ORDER BY nreduz");
+	    $row = query("SELECT DISTINCT cod,nreduz FROM cad_organizacoes WHERE  ativo = 'S' ORDER BY nreduz");
 	    if(is_array($row)&&count($row)>0){
     	        foreach($row as $r){
     	            $temp = array($r['cod'],$r['nreduz']);
@@ -275,12 +514,9 @@ class listar_os{
 	    return $ret;
 	}
 	
-	private function restricao(){
-	    return array(array('',''),array('000001','Nenhuma Restrição'),array('000002','Projeto Fechado'),array('000003','Não Faturar'),array('000004','Outsourcing'));
-	}
 	private function listaClienteTab(){
 	    $ret = array(array('',''));
-	    $row = query("SELECT DISTINCT cod,nreduz FROM cad_clientes WHERE  ativo = 'S' ORDER BY nreduz");
+	    $row = query("SELECT DISTINCT cod,nreduz FROM cad_organizacoes WHERE  ativo = 'S' ORDER BY nreduz");
 	    if(is_array($row)&&count($row)>0){
 	        foreach($row as $r){
 	            $temp = array($r['cod'],$r['nreduz']);
@@ -304,29 +540,6 @@ class listar_os{
 	    return $ret;
 	}
 	
-	public function ajax(){
-	    $ret = [];
-	    
-	    
-	    $ret[] = array('valor' => '', 'etiqueta' => '');
-	    $cliente = getParam($_GET, 'cliente', '');
-	    
-	    if($cliente != ''){
-	        $sql = "select * from sdm_projetos where cliente = '$cliente'";
-	        $rows = query($sql);
-	        if(is_array($rows) && count($rows) > 0){
-	            foreach ($rows as $row){
-	                $temp = array(
-	                    'valor' => $row['id'],
-	                    'etiqueta' => $row['titulo'],
-	                );
-	                $ret[] = $temp;
-	            }
-	        }
-	    }
-	    return json_encode($ret);
-	}
-	
 	private function criarListaProjetos($cliente = ''){
 	    $ret = [];
 	    
@@ -342,96 +555,7 @@ class listar_os{
 	    }
 	    return $ret;
 	}
-	
-	public function editar($id=0, $agenda='0'){
-	    $this->addJqueryAjax();
-	    if($id==0){
-	        $id = intval(getParam($_GET, 'id', 0));
-	    }
-	    if($agenda == '0'){
-	        $agenda = getParam($_GET, 'agenda', '');
-	    }
-	    $lis = array();
-	    if(isset($_POST['exportar']) && count($_POST['exportar']) > 0)
-	    {
-	        $id = 0;
-	        $lis = $_POST['exportar'];
-	        //print_r($lis);
-	    }
-	    /*
-	    if(!$this->validaEdita($id)&&$id!=0){
-	        addPortalMensagem("", "Você não tem permissão para alterar essa OS", 'erro');
-			return $this->index();
-	        $id=0;
-	    }
-	    
-	    else{
-	        $dados = $this->getDadosOS($id,$lis,$agenda);
-	    }
-	    */
-	    $dados = $this->getDadosOS($id,$lis,$agenda);
-	    $ret = '';
-	    //$this->getId();
-	    
-	    $param = [];
-	    $form = new form01($param);
-	    $alteraData = true;
-	    if($id == 0 && empty($agenda)){
-	        $form->addCampo(array('id' => 'cliente'	    , 'campo' => 'formOS[os][os_cliente]'        ,'valor'=> $dados['os']['os_cliente']  , 'etiqueta' => 'Cliente'		                            , 'tipo' => 'A'  ,  'tamanho' => '10', 'linha' => 1, 'largura' => 6	, 'lista' => $this->listaClienteTab()								, 'validacao' => '',                                                  'obrigatorio' => true, 'onchange' => 'callAjax();'));
-	        $form->addCampo(array('id' => 'projeto'	    , 'campo' => 'formOS[os][projeto]'           ,'valor'=> $dados['os']['projeto']		, 'etiqueta' => 'Projeto'	                                , 'tipo' => 'A'	 ,  'tamanho' => '10', 'linha' => 1, 'largura' => 3	, 'lista' => array(array('', ''))		             				, 'validacao' => ''));
-	    }else{
-	    	$nomeCli = $this->getNomeCliente($dados['os']['os_cliente']);
-	        $form->addCampo(array('id' => 'cliente'	    , 'campo' => 'formOS[os][os_cliente]'        ,'valor'=> $nomeCli  				 	, 'etiqueta' => 'Cliente'		   							, 'tipo' => 'I'  ,  'tamanho' => '10', 'linha' => 1, 'largura' => 6	, 'lista' => ''														, 'validacao' => ''	, 'obrigatorio' => true));
-	        $form->addCampo(array('id' => 'projeto'	    , 'campo' => 'formOS[os][projeto]'           ,'valor'=> $dados['os']['projeto']    	, 'etiqueta' => 'Projeto'	                                , 'tipo' => 'A'	 ,  'tamanho' => '10', 'linha' => 1, 'largura' => 3	, 'lista' => $this->criarListaProjetos($dados['os']['os_cliente'])	, 'validacao' => ''));
-	        if(!empty($agenda)){
-	        	$alteraData = false;
-	        }
-	    }
-	    $form->addCampo(array('id' => 'data'	    , 'campo' => 'formOS[os][data]'                  ,'valor'=> $dados['os']['data']        , 'etiqueta' => 'Data'	                                    , 'tipo' => 'D'	 ,  'tamanho' => '10', 'linha' => 1, 'largura' => 3	, 'lista' => ''			             								, 'validacao' => '', 'readonly' => !$alteraData));
-	    
-	    $form->addCampo(array('id' => 'modulo'	    , 'campo' => 'formOS[os][modulo]'	             ,'valor'=> $dados['os']['modulo']      , 'etiqueta' => 'Módulo'	                                , 'tipo' => 'T'  , 'tamanho' => '10', 'linha' => 2, 'largura' => 6	, 'lista' => ''		                 								, 'validacao' => ''));
-
-	    $form->addCampo(array('id' => 'restricao'	, 'campo' => 'formOS[os][restricao]'             ,'valor'=> $dados['os']['restricao']   , 'etiqueta' => 'Restrição'	                                , 'tipo' => 'A'	 ,  'tamanho' => '10', 'linha' => 2, 'largura' => 2	, 'lista' => tabela('000001')										, 'validacao' => '',                                                  'obrigatorio' => true));
-	    $form->addCampo(array('id' => 'usuario'	    , 'campo' => 'formOS[os][pessoa]'                ,'valor'=> $dados['os']['pessoa']      , 'etiqueta' => 'Usuário'	                                , 'tipo' => 'T'	 ,  'tamanho' => '10', 'linha' => 2, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => ''));
-	    $form->addCampo(array('id' => 'hora_ini'	, 'campo' => 'formOS[os][hora_ini]'              ,'valor'=> $dados['os']['hora_ini']    , 'etiqueta' => 'Hora Início'	                            , 'tipo' => 'T'	 ,  'tamanho' => '10', 'linha' => 3, 'largura' => 2	, 'lista' => ''		                 								, 'validacao' => '', 'mascara' => 'H', 'onchange' => 'calculaHora();','obrigatorio' => true));
-	    $form->addCampo(array('id' => 'hora_fim'	, 'campo' => 'formOS[os][hora_fim]'              ,'valor'=> $dados['os']['hora_fim']    , 'etiqueta' => 'Hora Fim'	                                , 'tipo' => 'T'	 ,  'tamanho' => '10', 'linha' => 3, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => '', 'mascara' => 'H', 'onchange' => 'calculaHora();','obrigatorio' => true));
-	    $form->addCampo(array('id' => 'hora_add'	, 'campo' => 'formOS[os][hora_add]'              ,'valor'=> $dados['os']['hora_add']    , 'etiqueta' => 'Outros (+)'	                            , 'tipo' => 'T'	 ,  'tamanho' => '10', 'linha' => 4, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => '', 'mascara' => 'H', 'onchange' => 'calculaHora();'));
-	    $form->addCampo(array('id' => 'hora_sub'	, 'campo' => 'formOS[os][hora_sub]'              ,'valor'=> $dados['os']['hora_sub']    , 'etiqueta' => 'Outros (-)'	                            , 'tipo' => 'T'	 ,  'tamanho' => '10', 'linha' => 4, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => '', 'mascara' => 'H', 'onchange' => 'calculaHora();'));
-	    $form->addCampo(array('id' => 'hora_trans'	, 'campo' => 'formOS[os][hora_trans]'            ,'valor'=> $dados['os']['hora_trans']  , 'etiqueta' => 'Transladado'	                            , 'tipo' => 'T'	 ,  'tamanho' => '10', 'linha' => 4, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => '', 'mascara' => 'H', 'onchange' => 'calculaHora();'));
-	    $form->addCampo(array('id' => 'hora_total_f'	, 'campo' => 'formOS[os][hora_total]'        ,'valor'=> $dados['os']['hora_total'] 	, 'etiqueta' => 'Total'	                                    , 'tipo' => 'I'	 ,  'tamanho' => '10', 'linha' => 4, 'largura' => 2	, 'lista' => ''			             								, 'validacao' => '', 'mascara' => 'H'));
-	    $form->addHidden('formOS[os][hora_total]',''.$dados['os']['hora_total'],'hora_total');
-	    
-	    $form->addCampo(array('id' => 'observacao'	, 'campo' => 'formOS[os][observacao]'            ,'valor'=> $dados['os']['observacao']  , 'etiqueta' => 'Observação (vai ser impressa na OS):'	    , 'tipo' => 'TA' , 'tamanho' => '10', 'linha' => 5, 'largura' => 12	,  'lista' => ''			, 'validacao' => ''));
-	    $ret .= $form;
-	    $ret .= $this->getTabelaTarefas($id,$lis);
-	    
-	    $param = array();
-	    $ret .= formbase01::formSend();
-	    
-	    $link = getLink() . "salvar&id=$id&agenda=$agenda";
-			if(count($lis) > 0){
-				$link .= '&lis=' . implode('|', $lis);
-			}
-            
-            $param = array(
-                'acao' => $link,
-                'id'   => 'formContrato',
-                'nome' => 'formContrato',
-            );
-	    
-	    $ret = formbase01::form($param, $ret);
-	    
-	    $param = [];
-	    $param['conteudo'] = $ret;
-	    $param['titulo'] = 'Edição OS';
-	    if($id==0)	    {
-	    	$param['titulo'] = 'Nova OS';
-	    }
-	    $ret = addCard($param);
-	        
-	        return $ret;
-	}
-	
+		
 	private function array_key_first(array $arr) {
 	    foreach($arr as $key => $unused) {
 	        return $key;
@@ -441,7 +565,7 @@ class listar_os{
 	
 	private function getNomeCliente($cliente){
 	    $ret = '';
-	    $sql = "SELECT DISTINCT nreduz FROM cad_clientes WHERE ativo = 'S' and cod = '$cliente'";
+	    $sql = "SELECT DISTINCT nreduz FROM cad_organizacoes WHERE ativo = 'S' and cod = '$cliente'";
 	    $rows = query($sql);
 	    if(is_array($rows) && count($rows) > 0){
 	        $ret = $rows[0]['nreduz'];
@@ -449,10 +573,9 @@ class listar_os{
 	    return $ret;
 	}
 	
-	private function getDadosOS($id, $lis= [], $agenda){ 
+	private function getDadosOS($id, $lis= [], $agenda = 0){ 
 	    $ret = ['os' => [], 'tarefa' => []];
-	    $col = ['id', 'os_cliente','modulo','projeto','data','restricao','pessoa','hora_ini','hora_fim','hora_add','hora_sub','hora_trans','hora_total','observacao']
-	    ;
+	    $col = ['id', 'os_cliente','modulo','projeto','data','restricao','pessoa','hora_ini','hora_fim','hora_add','hora_sub','hora_trans','hora_total','observacao','obs_int'];
 	    if($id!=0){
 	        $rows = query("SELECT * FROM sdm_os WHERE id = $id ");
 	        if (is_array($rows) && count($rows) > 0) {
@@ -489,57 +612,6 @@ class listar_os{
 	    }
 	    $ret['os']['data']=datas::dataS2D($ret['os']['data']);
 	    return $ret;
-	}
-	
-	public function salvar() {
-	    //print_r($_POST);
-	    //return '';
-	    
-	    $dados = getParam($_POST, 'formOS', array());
-	    $id = intval(getParam($_GET, 'id', 0));
-	    $agenda = getParam($_GET, 'agenda', '0');
-	    $lista_sdm_os_tarefas = getParam($_GET, 'lis', '');
-	    
-	    //    print_r($dados);
-	    
-	    if(is_array($dados) && count($dados) > 0){
-	        $dados_os 				= $dados['os'];
-	        $dados_tarefas 			= $dados['tarefas'];
-	        $dados_os['data'] 		= datas::dataD2S($dados_os['data']);
-	        //$dados_os['cliente'] 	= getCliente();
-	        $dados_os['user']		= getUsuario();
-	        /*
-	         * tirei essa parte para só ter o projeto digitado
-	        if(isset($dados_os['projeto2'])&&$dados_os['projeto2']!='')
-	        {
-	            $dados_os['projeto'] = $dados_os['projeto2'];
-	        }
-	        unset($dados_os['projeto2']);
-	        */
-	        if($id==0){
-	            
-	        	$dados_os['id'] = $this->getId();
-//   echo "O ID SERIA ". $this->getId();
-	            $sql = montaSQL($dados_os, 'sdm_os');
-// echo $sql;
-			}
-			else{
-				$sql = montaSQL($dados_os, 'sdm_os', 'UPDATE'," id = $id  ");
-			}
-			//echo $sql;
-			query($sql);
-			if($agenda != '0'){
-			    $sql = "select * from sdm_os where id = '" . $id . "'";
-			    $rows = query($sql);
-			    if(is_array($rows) && count($rows) > 0){
-    			    $sql = "update sdm_agenda set os = '$id' where id = '" . base64_decode($agenda) . "'";
-    			    query($sql);
-			    }
-			}
-		//	$id_os = $id != 0 ? $id : $this->recuperarOS($dados_os);
-			$this->gravarTarefas($dados_tarefas, $id, $lista_sdm_os_tarefas);
-	    }
-	    return $this->index();
 	}
 	
 	private function getId(){
@@ -676,84 +748,6 @@ class listar_os{
 	    return $ret;
 	}
 	
-	public function editaModelo(){
-	    $param = array();
-	    $param['titulo'] = 'Ordem de Serviço';
-	    $param['editores'] = array( 'Modelo_OS');
-	    $param['variaveis'] = $this->_variaveis;
-	    $param['variaveisIndividuais'] = false;
-	    
-	    $editor = new editor01($param);
-	    $editor->setTituloEditor('Corpo da OS', 'Modelo_OS');
-	   
-	    $textoCorpo = $this->carregaModelo();
-	    
-	    $editor->setConteudo( $textoCorpo[0]['valor'], 'Modelo_OS');
-	    
-	    return '' . $editor;
-	}
-	
-	public function gravarEditor(){
-		$cliente 	= getCliente();
-	    $textoCorpo = getParam($_POST, 'Modelo_OS');
-	    //print_r($textoCorpo);
-	    $sys = new sys020();	   
-	    $rows = query("SELECT parametro FROM sys020 WHERE parametro = 'Modelo_OS_$cliente'");
-	    if(is_array($rows) && count($rows)>0)
-	    {
-	        $sys->atualiza($this->_programa, 'Modelo_OS_' . $cliente ,    $textoCorpo);	    
-	    }
-	    else{
-	        $dados = array(
-	            'programa'=>$this->_programa,
-	            'parametro'=>'Modelo_OS_' . $cliente,
-	            'tipo'=>'ED',
-	            'config'=>'',
-	            'descricao'=>'Modelo da Ordem de Serviço',
-	            'valor'=>$textoCorpo,
-	            
-	        );
-	        $sys->inclui($dados);
-	    }
-	    return ''.$this->index();
-	}
-	
-	public function geraPDF(){
-	    $id = intval(getParam($_GET, 'id', 0));
-	    if($id == 0){
-	        $agenda = getParam($_GET, 'agenda', '0');
-	        if($agenda != '0'){
-	            $sql = "select os from sdm_agenda where id = '" . base64_decode($agenda) . "'";
-	            $rows = query($sql);
-	            if(is_array($rows) && count($rows) > 0){
-	                $id = $rows[0]['os'];
-	            }
-	        }
-	    }
-	    //    global $config;
-	    
-	    $options = new Options();
-	    $options->set('isPhpEnabled', TRUE);
-	    $options->set('isRemoteEnabled', true);
-	    
-		$dados = $this->getDadosPDF($id);
-	    $texto = $this->carregaModelo();
-		$texto = $this->setTextoOS($dados, $texto[0]['valor']);
-		
-		$texto_estilo = "<style>
-td {font-size:13px;}
-</style>";
-
-$texto = $texto_estilo . $texto;
-
-	    $dompdf = new Dompdf($options);
-	    $dompdf->loadHtml($texto);
-	    $dompdf->setPaper('A4', 'portrait');
-	    $dompdf->render();	    
-	    
-	    $dompdf->stream('document.pdf', array('Attachment'=>false));
-	}
-	
 	private function setTextoOS($dados,$modelo){
 	    if(is_array($dados) && count($dados) > 0){
 	        foreach ($dados as $campo => $valor){
@@ -764,6 +758,7 @@ $texto = $texto_estilo . $texto;
 	}
 	
 	private function getTabelaTarefasPDF($id = '', $cliente = ''){
+		global $config;
 		$ret = '';
 		if($id != '' && $cliente != ''){
 			$sql = "select * from sdm_os_itens where os = $id ";
@@ -772,14 +767,14 @@ $texto = $texto_estilo . $texto;
 				$ret = '<table border="0" cellpadding="0" cellspacing="0" style="width:100%">
 	<tbody>
 		<tr>
-			<td colspan="4"><img src="http://osoffice.thielws.com.br/twsfwS3/imagens/preto.gif" style="height:2px; width:700px" /></td>
+			<td colspan="4"><img src="'.$config['raizS3'].'imagens/preto.gif" style="height:2px; width:700px" /></td>
 		</tr>
 		<tr>
 			<td style="text-align:center;">Tarefa</td>
 			<td colspan="3" style="text-align:center;">Descri&ccedil;&atilde;o Atividade</td>
 		</tr>
 		<tr>
-			<td colspan="4" style="width:100%"><img src="http://osoffice.thielws.com.br/twsfwS3/imagens/preto.gif" style="height:1px; width:700px" /></td>
+			<td colspan="4" style="width:100%"><img src="'.$config['raizS3'].'imagens/preto.gif" style="height:1px; width:700px" /></td>
 		</tr>';
 				foreach($rows as $num => $row){
 					$ret .= '<tr>';
@@ -787,11 +782,11 @@ $texto = $texto_estilo . $texto;
 					$ret .= '<td colspan="3" style="text-align:left;">' . nl2br($row['descricao']) . "</td>";
 					$ret .= '</tr>';
 					$ret .= '		<tr>
-			<td colspan="4"><img src="http://osoffice.thielws.com.br/twsfwS3/imagens/preto.gif" style="height:1px; width:700px" /></td>
+			<td colspan="4"><img src="'.$config['raizS3'].'imagens/preto.gif" style="height:1px; width:700px" /></td>
 		</tr>';
 				}
 				$ret .= '<tr>
-			<td colspan="4"><img src="http://osoffice.thielws.com.br/twsfwS3/imagens/preto.gif" style="height:1px; width:700px" /></td>
+			<td colspan="4"><img src="'.$config['raizS3'].'imagens/preto.gif" style="height:1px; width:700px" /></td>
 		</tr>
 	</tbody>
 </table>';
@@ -823,7 +818,7 @@ $texto = $texto_estilo . $texto;
 	            }
 	        }
 	            
-	        $rows1 = query("SELECT nreduz,nome FROM cad_clientes WHERE cod = '" . $ret['os_cliente'] . "' and ativo != 'N' ");
+	        $rows1 = query("SELECT nreduz,nome FROM cad_organizacoes WHERE cod = '" . $ret['os_cliente'] . "' and ativo != 'N' ");
             if (is_array($rows1) && count($rows1) > 0){
                 $ret['cliente_nome'] = $rows1[0]['nome'];
             }            
@@ -841,6 +836,36 @@ $texto = $texto_estilo . $texto;
 	    return $ret;
 	}
 	
+	/**
+	 * Verifica se existe tarefas associadas a esta OS e libera as mesmas para novo faturamento se existir
+	 * 
+	 * @param int $os - Nr da OS
+	 */
+	private function verificaTarefasExclusao($os){
+		$tarefas = [];
+	
+		$sql = "SELECT tarefa FROM sdm_os_itens WHERE os = $os AND IFNULL(tarefa,'') <> '' ";
+		$rows = query($sql);
+		if(is_array($rows) && count($rows) > 0){
+			foreach ($rows as $row){
+				$tarefas[] = $row['tarefa'];
+			}
+		}
+		
+		if(count($tarefas) > 0){
+			$sql = "UPDATE sdm_tarefas SET os = 0 WHERE id IN (".implode(',', $tarefas).")";
+			query($sql);
+		}
+	}
+	
+	function jsConfirmaExclusao($titulo){
+	    addPortaljavaScript('function confirmaExclusao(link,id){');
+	    addPortaljavaScript('	if (confirm('.$titulo.')){');
+	    addPortaljavaScript('		setLocation(link+id);');
+	    addPortaljavaScript('	}');
+	    addPortaljavaScript('}');
+	}
+	
 	private function carregaModelo(){
 		$ret = array();
 		$cliente = getCliente();
@@ -849,6 +874,8 @@ $texto = $texto_estilo . $texto;
 		if(count($ret) == 0){
 			$ret = $sys->getParametros($this->_programa, 'Modelo_OS');
 		}
+	//	var_dump($ret);
+		//die();
 		return $ret;
 	}
 	
@@ -868,8 +895,6 @@ $texto = $texto_estilo . $texto;
 }");
 	}
 }
-
-
 
 function addJS_ListaOS(){
     $ret = '';
@@ -995,3 +1020,4 @@ function FormataHora(campo,teclapres) {
     
     return $ret;
 }
+
