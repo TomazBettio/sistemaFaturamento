@@ -7,6 +7,8 @@ header ("Pragma: no-cache");	// HTTP/1.0
 header('Content-type: text/html; charset=utf-8');
 
 include("./config/config.php");
+// global $config;
+// echo $config['cliente'] . "<br>\n";
 
 if($config['error_reporting']){
 	ini_set('display_errors',1);

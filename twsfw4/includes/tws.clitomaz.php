@@ -1,5 +1,6 @@
 <?php
 
+
 if(true){
 	$config['db_bancoIECLB'] 	= 'pdo';
 	$config['db_serverIECLB'] 	= 'host=localhost';
