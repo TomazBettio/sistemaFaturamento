@@ -65,9 +65,9 @@ class programa1
 
 
 		$this->montaColunas();
-		$this->getDados();
+		$dados = $this->getDados();
 	
-		// $this->_tabela->setDados($this->_dados);
+		$this->_tabela->setDados($dados);
 
 
 
@@ -80,7 +80,7 @@ class programa1
 		$param = array();
 		$param['texto'] 	=  'Editar';
 		$param['link'] 		= getLink() . 'editar&id=';
-		$param['coluna']	= 'CDPCODIGO';
+		$param['coluna']	= 'id';
 		$param['flag'] 		= '';
 		$param['width'] 	= 30;
 		$this->_tabela->addAcao($param);
@@ -88,7 +88,7 @@ class programa1
 		$param = [];
 		$param['texto'] 	= 'Excluir';
 		$param['link'] 		= getLink() . 'excluir&id=';
-		$param['coluna'] 	= 'CDPCODIGO';
+		$param['coluna'] 	= 'id';
 		$param['width'] 	= 30;
 		$param['flag'] 		= '';
 		//$param['tamanho'] 	= 'pequeno';
@@ -108,7 +108,7 @@ class programa1
 	private function montaColunas()
 	{
 		$this->_tabela->addColuna(array('campo' => 'id', 'etiqueta' => 'id', 'tipo' => 'T', 'width' =>  200, 'posicao' => 'E'));
-		$this->_tabela->addColuna(array('campo' => 'nome', 'etiqueta' => 'Nome', 'tipo' => 'T', 'width' =>  200, 'posicao' => 'E'));
+		$this->_tabela->addColuna(array('campo' => 'nome_dado', 'etiqueta' => 'Nome', 'tipo' => 'T', 'width' =>  200, 'posicao' => 'E'));
 		// $this->_tabela->addColuna(array('campo' => 'CDPDATA_INC', 'etiqueta' => 'Data Inclus&atilde;o', 'tipo' => 'T', 'width' =>  200, 'posicao' => 'E'));
 		// $this->_tabela->addColuna(array('campo' => 'CDPDATA_ALT', 'etiqueta' => 'Data Altera&ccedil;&atilde;o', 'tipo' => 'T', 'width' =>  200, 'posicao' => 'E'));
 		// $this->_relatorio->addColuna(array('campo' => 'totalQt'	        , 'etiqueta' => 'Quant. Total'	, 'tipo' => 'T', 'width' =>  150, 'posicao' => 'D'));
@@ -118,28 +118,30 @@ class programa1
 
 	private function getDados()
 	{
-		// $ret = array();
+		$ret = [];
 
 		$sql =
 			"SELECT
                 *
             FROM
                 dados_teste";
-		echo "$sql <br> ";
+		// echo "$sql <br> ";
 		$rows = query($sql);
 		if (is_array($rows) && count($rows) > 0) {
 			foreach ($rows as $row) {
+                // print_r( $row ) . 'aaaaa';
 				$temp = [];
 				$temp['id']        = $row['id'];
-				$temp['nome']       = $row['nome'];
+				$temp['nome_dado']       = $row['nome_dado'];
 				
 
-				$this->_dados[] = $temp;
-				// $ret[] = $temp;
+				// $this->_dados[] = $temp;
+			    $ret[] = $temp;
+                // print_r($ret);
 			}
 		}
 
-		return;
+		return $ret;
 	}
 
 	private function getDadosEditar($id)
