@@ -41,16 +41,16 @@ class programa1
 	{
 
 		$this->_programa = get_class($this);
-		$this->_titulo = 'Cruzamento de Similares';
+		$this->_titulo = 'Controle estoque';
 
 		$param = [];
 		$param['width'] = 'AUTO';
 
-		$param['info'] = false;
+		$param['info'] = true;
 		$param['filter'] = false;
 		$param['ordenacao'] = false;
-		$param['paginacao'] = true;
-		$param['titulo'] = 'Classe De/Para';
+		$param['paginacao'] = false;
+		$param['titulo'] = 'Controle estoque';
 		$this->_tabela = new tabela01($param);
 
 		$param = [];
@@ -96,7 +96,7 @@ class programa1
 		$this->_tabela->addAcao($param);
 
 
-		$this->_tabela->setTitulo("Tabela Classes DE/PARA");
+		$this->_tabela->setTitulo("Tabela de cadastro de estoque");
 
 		$ret .= $this->_tabela;
 		
@@ -107,8 +107,9 @@ class programa1
 
 	private function montaColunas()
 	{
-		$this->_tabela->addColuna(array('campo' => 'id', 'etiqueta' => 'id', 'tipo' => 'T', 'width' =>  200, 'posicao' => 'E'));
-		$this->_tabela->addColuna(array('campo' => 'nome_dado', 'etiqueta' => 'Nome', 'tipo' => 'T', 'width' =>  200, 'posicao' => 'E'));
+		$this->_tabela->addColuna(array('campo' => 'id', 'etiqueta' => 'id', 'tipo' => 'T', 'width' =>  250, 'posicao' => 'E'));
+		$this->_tabela->addColuna(array('campo' => 'nome_dado', 'etiqueta' => 'Nome', 'tipo' => 'T', 'width' =>  250, 'posicao' => 'E'));
+        $this->_tabela->addColuna(array('campo' => 'cod', 'etiqueta' => 'codigo', 'tipo' => 'T', 'width' =>  250, 'posicao' => 'E'));
 		// $this->_tabela->addColuna(array('campo' => 'CDPDATA_INC', 'etiqueta' => 'Data Inclus&atilde;o', 'tipo' => 'T', 'width' =>  200, 'posicao' => 'E'));
 		// $this->_tabela->addColuna(array('campo' => 'CDPDATA_ALT', 'etiqueta' => 'Data Altera&ccedil;&atilde;o', 'tipo' => 'T', 'width' =>  200, 'posicao' => 'E'));
 		// $this->_relatorio->addColuna(array('campo' => 'totalQt'	        , 'etiqueta' => 'Quant. Total'	, 'tipo' => 'T', 'width' =>  150, 'posicao' => 'D'));
@@ -133,6 +134,8 @@ class programa1
 				$temp = [];
 				$temp['id']        = $row['id'];
 				$temp['nome_dado']       = $row['nome_dado'];
+                $temp['cod']       = $row['cod'];
+
 				
 
 				// $this->_dados[] = $temp;
@@ -147,28 +150,21 @@ class programa1
 	private function getDadosEditar($id)
 	{
 		$ret = [];
-		$campos = array('id', 'codclasse', 'codclasseproc');
+		$campos = array('nome_dado', 'cod');
 
-		// $sql =
-		// 	"SELECT
-		// 		r.CDPCODIGO as id, 
-		// 		r.CDPCODCLASSE as codclasse, 
-		// 		r.CDPCODCLASSEPROC as codclasseproc
-		// 	FROM
-		// 		CLASSESDEPARA r
-		// 	WHERE
-		// 		r.CDPSTATUS =  'S'  
-		// 	and r.CDPCODIGO = $id 
-		// 	order by 
-		// 		r.CDPCODIGO ";
-		// // echo $sql . "<br> ";
-		// $rows = queryCONSULT($sql);
-		// // print_r($rows);
-		// if (is_array($rows) && count($rows) > 0) {
-		// 	foreach ($campos as $campo) {
-		// 		$ret[$campo] = $rows[0][$campo];
-		// 	}
-		// }
+		$sql =
+			"SELECT
+				*
+			FROM
+				dados_teste";
+		// echo $sql . "<br> ";
+		$rows = query($sql);
+		// print_r($rows);
+		if (is_array($rows) && count($rows) > 0) {
+			foreach ($campos as $campo) {
+				$ret[$campo] = $rows[0][$campo];
+			}
+		}
 		return $ret;
 	}
 
@@ -183,17 +179,17 @@ class programa1
 		$form = new form01($param);
 		$form->setBotaoCancela();
 
-		$param['valor'] = $dados['codclasse'];
-		$param['campo'] = 'formPrograma[CDPCODCLASSE]';
-		$param['etiqueta'] = 'DE';
+		$param['valor'] = $dados['cod'];  
+		$param['campo'] = 'formPrograma[cod]';
+		$param['etiqueta'] = 'codigo';
 		$param['largura'] = '4';
 		$param['tipo'] = 'N';
 		$param['obrigatorio'] = true;
 		$form->addCampo($param);
 
-		$param['valor'] = $dados['codclasseproc'];
-		$param['campo'] = 'formPrograma[CDPCODCLASSEPROC]';
-		$param['etiqueta'] = 'PARA';
+		$param['valor'] = $dados['nome_dado'];
+		$param['campo'] = 'formPrograma[nome_dado]';
+		$param['etiqueta'] = 'nome';
 		$param['largura'] = '4';
 		$param['tipo'] = 'N';
 		$param['obrigatorio'] = true;
@@ -221,8 +217,8 @@ class programa1
 		// $form->addHidden('CDPCODIGO', $id);
 
 		$param = [];
-		$param['campo'] = 'CDPCODCLASSE';
-		$param['etiqueta'] = 'DE';
+		$param['campo'] = 'cod';
+		$param['etiqueta'] = 'codigo';
 		$param['largura'] = '4';
 		$param['tipo'] = 'N';
 		$param['obrigatorio'] = true;
@@ -230,8 +226,8 @@ class programa1
 
  
 		$param = [];
-		$param['campo'] = 'CDPCODCLASSEPROC';
-		$param['etiqueta'] = 'PARA';
+		$param['campo'] = 'nome_dado';
+		$param['etiqueta'] = 'Nome';
 		$param['largura'] = '4';
 		$param['tipo'] = 'N';
 		// $param['tamanho'] = '14';
@@ -249,7 +245,7 @@ class programa1
 		$p['cor'] = 'danger';
 		$p['texto'] = 'Voltar';
 		$param['botoesTitulo'][] = $p;
-		$param['titulo'] = 'Inclus o De/Para';
+		$param['titulo'] = 'Incluir objeto';
 		$param['conteudo'] = $ret;
 		$ret = addCard($param);
 
@@ -261,18 +257,18 @@ class programa1
 		$id = getParam($_GET, 'id', 0);
 		$data = date('Y-m-d H:i:s');
 		// echo $id;
-		// if ($id !== 0) {
-		// 	$sql = "UPDATE
-		// 				CLASSESDEPARA r
-		// 			SET
-		// 				r.CDPSTATUS = 'N', 
-		// 				r.CDPDATA_ALT = '" . $data . "'
-		// 			WHERE
-		// 				r.CDPCODIGO = " . $id;
-		// 	queryCONSULT($sql);
-		// 	// echo $sql;
-		// 	addPortalMensagem("Sucesso!<br>O programa foi exclu do!");
-		// }
+		if ($id !== 0) {
+			$sql = "UPDATE
+						dados_teste r
+					SET
+						r.CDPSTATUS = 'N', 
+						r.CDPDATA_ALT = '" . $data . "'
+					WHERE
+						r.CDPCODIGO = " . $id;
+			queryCONSULT($sql);
+			// echo $sql;
+			addPortalMensagem("Sucesso!<br>O programa foi exclu do!");
+		}
 
 		$ret = $this->index();
 		return $ret;
@@ -281,19 +277,19 @@ class programa1
 	public function salvarInc()
 	{
 
-		$de = $_POST['CDPCODCLASSE'];
-		$para = $_POST['CDPCODCLASSEPROC'];
-		$data = date('Y-m-d H:i:s');
+		$cod = $_POST['cod'];
+		$nome = $_POST['nome_dado'];
+		// $data = date('Y-m-d H:i:s');
 
 
-		// $sql = "INSERT INTO 
-		// 			CLASSESDEPARA(CDPDATA_INC, CDPUSU_INC, CDPDATA_ALT, CDPUSU_ALT, CDPSTATUS, CDPCODCLASSE, CDPCODCLASSEPROC) 
-		// 		VALUES 
-		// 			('" . $data . "', 78, '" . $data . "', 78, 'S', $de, $para)";
+		$sql = "INSERT INTO 
+					dados_teste(id, cod, nome_dado) 
+				VALUES 
+					('', $cod, '" . $nome . "')";      
 
-		// echo $sql;
-		// // die("ok");
-		// queryCONSULT($sql);
+		echo $sql;
+		// die("ok");
+		query($sql);
 		// $sql = "INSERT INTO 
 		// 			CLASSESDEPARA(CDPDATA_INC, CDPUSU_INC, CDPDATA_ALT, CDPUSU_ALT, CDPSTATUS, CDPCODCLASSE, CDPCODCLASSEPROC) 
 		// 		VALUES 
@@ -314,24 +310,24 @@ class programa1
 		$dados = getParam($_POST, 'formPrograma', []);
 
 
-		$de = $dados['CDPCODCLASSE'];
-		echo $de;
-		$para = $dados['CDPCODCLASSEPROC'];
-		echo $para;
-		$data = date('Y-m-d H:i:s');
+		$cod = $dados['cod'];
+		// echo $de;
+		$nome = $dados['nome_dado'];
+		// echo $para;
+		// $data = date('Y-m-d H:i:s');
 
-		// $sql = "UPDATE 
-		// 			CLASSESDEPARA 
-		// 		SET 
-		// 			CDPCODCLASSE = $de, 
-		// 			CDPCODCLASSEPROC = $para, 
-		// 			CDPDATA_ALT = '" . $data . "'
-		// 		WHERE 
-		// 			CDPCODIGO = $id";
+		$sql = "UPDATE 
+					dados_teste 
+				SET 
+					cod = $cod, 
+					nome_dado = '" . $nome  . "'
+				
+				WHERE 
+					id = $id";
 
-		// echo $sql;
+		echo $sql;
 		// // die('ok');
-		// queryCONSULT($sql);
+		query($sql);
 
 		addPortalMensagem("Sucesso!<br>O programa foi editado!");
 
