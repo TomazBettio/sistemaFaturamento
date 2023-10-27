@@ -222,6 +222,9 @@ class programa1
 		$param['largura'] = '4';
 		$param['tipo'] = 'N';
 		$param['obrigatorio'] = true;
+        $param['pasta'] = 1;
+
+
 		$form->addCampo($param);
 
  
@@ -232,13 +235,16 @@ class programa1
 		$param['tipo'] = 'N';
 		// $param['tamanho'] = '14';
 		$param['obrigatorio'] = true;
+        $param['pasta'] = 2;
 		$form->addCampo($param);
 
+		$form->setPastas([1 => 'Dados Gerais', 2 => 'Nomes']);
 		$form->setEnvio(getLink() . 'salvarInc', 'formIncluir_cliente');
 
 		$ret .= $form;
 
-		$param = array();
+
+        $param = array();
 		$p = array();
 		$p['onclick'] = "setLocation('" . getLink() . "index')";
 		$p['tamanho'] = 'pequeno';
@@ -335,4 +341,10 @@ class programa1
 		$ret = $this->index();
 		return $ret;
 	}
+    
+
+    public function incluirMultiplos(){
+
+      
+    }
 }
